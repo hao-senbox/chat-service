@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }}</title>
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .header {
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .chat-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .message-form {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+        }
+
+        .message-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .send-button {
+            margin-left: 10px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            max-width: 70%;
+        }
+
+        .message-received {
+            background-color: #f1f0f0;
+            align-self: flex-start;
+        }
+
+        .message-sent {
+            background-color: #DCF8C6;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .message-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .back-button {
+            margin-right: 10px;
+            padding: 5px 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .timestamp {
+            font-size: 0.8em;
+            color: gray;
+            margin-top: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="back-button" onclick="goBack()">Back</button>
+            <span id="group-name">Group Chat</span>
+            <div id="chat-container">
+
+            </div>
+        </div>
+
+        <div id="chat-area" class="chat-area message-container">
+            <!-- Messages will be displayed here -->
+        </div>
+
+        <div class="message-form">
+            <input type="text" id="message-input" class="message-input" placeholder="Type a message...">
+            <button id="send-button" class="send-button">Send</button>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // Cấu hình WebSocket
+            const userID = "{{ .userID }}";
+            const groupID = "{{ .groupID }}";
+            let conn = null;
+            let isConnecting = false;
+            let reconnectAttempts = 0;
+            const maxReconnectAttempts = 5;
+            let currentReconnectDelay = 500; // ms
+            const maxReconnectDelay = 30000; // 30s
+
+            // Cấu hình heartbeat
+            let heartbeatInterval = null;
+            const heartbeatTime = 55000; // 55s
+            let missedHeartbeats = 0;
+            const maxMissedHeartbeats = 3;
+
+            // Biến theo dõi số người dùng online
+            let onlineUsers = {
+                count: 0,
+                users: []
+            };
+            // Khởi tạo
+            loadPreviousMessages();
+            connectWebSocket();
+            // Đăng ký sự kiện
+            $("#send-button").on("click", sendMessage);
+            $("#message-input").on("keypress", function (e) {
+                if (e.key === "Enter") sendMessage();
+            });
+            $(window).on("beforeunload", cleanupWebSocket);
+
+            // Kết nối WebSocket
+            function connectWebSocket() {
+                if (isConnecting) return;
+
+                if (conn && [WebSocket.OPEN, WebSocket.CONNECTING].includes(conn.readyState)) {
+                    cleanupWebSocket();
+                }
+
+                isConnecting = true;
+                console.log("Đang kết nối WebSocket...");
+
+                try {
+                    conn = new WebSocket(`ws://${window.location.host}/ws/${userID}/${groupID}`);
+
+                    conn.onopen = function () {
+                        console.log("Kết nối WebSocket thành công");
+                        isConnecting = false;
+                        currentReconnectDelay = 500;
+                        enableChatInterface(true);
+                        startHeartbeat();
+                    };
+
+                    conn.onclose = function (event) {
+                        console.log(`Kết nối WebSocket đóng. Mã: ${event.code}, Lý do: ${event.reason}`);
+                        isConnecting = false;
+                        stopHeartbeat();
+
+                        if (event.code === 1000 && event.reason === "Intentional disconnect") {
+                            console.log("Đóng kết nối có chủ đích từ client");
+                            return;
+                        }
+
+
+                        handleReconnect();
+                    };
+
+                    conn.onerror = function (error) {
+                        console.error("Lỗi WebSocket:", error);
+                    };
+
+                    conn.onmessage = function (evt) {
+                        try {
+                            missedHeartbeats = 0;
+                            const message = JSON.parse(evt.data);
+                            console.log("Nhận tin nhắn:", message);                    // Xử lý thông báo cập nhật số người online
+                            if (message.type === "online_update") {
+                                onlineUsers.count = message.online_count;
+                                onlineUsers.users = message.online_users || [];
+                                updateOnlineUsersDisplay();
+                                return;
+                            }
+
+                            if (message.type === "pong") {
+                                console.log("Nhận heartbeat pong");
+                                return;
+                            }
+
+                            if (message.error) {
+                                console.error("Lỗi từ server:", message.error);
+                                displaySystemMessage("Lỗi: " + message.error);
+                                return;
+                            }
+
+                            displayMessage(message);
+                        } catch (e) {
+                            if (evt.data === "pong") {
+                                console.log("Nhận heartbeat pong");
+                                return;
+                            }
+                            console.error("Lỗi định dạng tin nhắn:", e);
+                            console.error("Raw message data:", evt.data);
+                        }
+                    };
+                } catch (error) {
+                    console.error("Không thể tạo kết nối WebSocket:", error);
+                    isConnecting = false;
+                    handleReconnect();
+                }
+            }
+
+            // Xử lý kết nối lại
+            function handleReconnect() {
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    console.log(`Kết nối lại (${reconnectAttempts + 1}/${maxReconnectAttempts}) sau ${currentReconnectDelay / 1000}s`);
+
+                    setTimeout(connectWebSocket, currentReconnectDelay);
+                    reconnectAttempts++;
+                    currentReconnectDelay = Math.min(currentReconnectDelay * 2, maxReconnectDelay);
+                } else {
+                    console.error("Đạt số lần kết nối lại tối đa");
+                    enableChatInterface(false);
+                }
+            }
+
+            // Quản lý heartbeat
+            function startHeartbeat() {
+                stopHeartbeat();
+                heartbeatInterval = setInterval(function () {
+                    if (conn && conn.readyState === WebSocket.OPEN) {
+                        try {
+                            console.log("Gửi ping heartbeat");
+                            conn.send(JSON.stringify({ type: "ping" }));
+                            missedHeartbeats++;
+
+                            if (missedHeartbeats >= maxMissedHeartbeats) {
+                                console.log("Quá nhiều heartbeat bị lỡ, kết nối lại");
+                                missedHeartbeats = 0;
+                                cleanupWebSocket();
+                                connectWebSocket();
+                            }
+                        } catch (e) {
+                            console.error("Lỗi khi gửi heartbeat:", e);
+                            cleanupWebSocket();
+                            connectWebSocket();
+                        }
+                    }
+                }, heartbeatTime);
+            }
+
+            function stopHeartbeat() {
+                if (heartbeatInterval) {
+                    clearInterval(heartbeatInterval);
+                    heartbeatInterval = null;
+                }
+            }
+
+            // Dọn dẹp kết nối
+            function cleanupWebSocket() {
+                stopHeartbeat();
+
+                if (conn && [WebSocket.OPEN, WebSocket.CONNECTING].includes(conn.readyState)) {
+                    try {
+                        conn.close(1000, "Intentional disconnect");
+                    } catch (e) {
+                        console.error("Lỗi khi đóng kết nối:", e);
+                    }
+                }
+                conn = null;
+            }
+
+            // Gửi tin nhắn
+            function sendMessage() {
+                const content = $("#message-input").val().trim();
+                if (!content) return;
+
+                if (!conn || conn.readyState !== WebSocket.OPEN) {
+                    console.log("WebSocket chưa kết nối, đang kết nối lại...");
+                    displaySystemMessage("Mất kết nối. Đang kết nối lại...");
+                    connectWebSocket();
+                    return;
+                }
+
+                try {
+                    conn.send(JSON.stringify({
+                        sender_id: userID,
+                        group_id: groupID,
+                        content: content,
+                        created_at: new Date(),
+                    }));
+
+                    $("#message-input").val("");
+                    missedHeartbeats = 0;
+                } catch (error) {
+                    console.error("Lỗi khi gửi tin nhắn:", error);
+                    displaySystemMessage("Không thể gửi tin nhắn. Vui lòng thử lại.");
+                    cleanupWebSocket();
+                    connectWebSocket();
+                }
+            }
+
+            // Hiển thị tin nhắn
+            function displayMessage(message) {
+                const formatted = formattedDate(message.created_at);
+                const isSent = message.sender_id === userID;
+                const $message = $("<div>")
+                    .addClass(`message ${isSent ? 'message-sent' : 'message-received'}`)
+                    .html(`<strong>${isSent ? 'Bạn' : message.sender_infor.user_name}:</strong> ${message.content} <div class="timestamp">${formatted}</div>`);
+
+                $("#chat-area").append($message)
+                    .scrollTop($("#chat-area")[0].scrollHeight);
+            }
+
+            function formattedDate(inputDate) {
+                let timeText = '';
+
+                if (inputDate) {
+                    const dateObj = new Date(inputDate);
+                    const now = new Date();
+
+                    const isToday = dateObj.toDateString() === now.toDateString();
+
+                    const yesterday = new Date();
+                    yesterday.setDate(now.getDate() - 1);
+                    const isYesterday = dateObj.toDateString() === yesterday.toDateString();
+
+                    if (isToday) {
+                        timeText = `Hôm nay, ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+                    } else if (isYesterday) {
+                        timeText = `Hôm qua, ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+                    } else {
+                        timeText = `${dateObj.toLocaleDateString('vi-VN')}, ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
+                    }
+                }
+
+                return timeText;
+            }
+
+            // Hiển thị tin nhắn hệ thống
+            function displaySystemMessage(text) {
+                const $message = $("<div>")
+                    .addClass("message message-system")
+                    .css({
+                        backgroundColor: "#ffeeee",
+                        textAlign: "center",
+                        color: "#666"
+                    })
+                    .text(text);
+
+                $("#chat-area").append($message)
+                    .scrollTop($("#chat-area")[0].scrollHeight);
+            }
+
+            // Bật/tắt giao diện chat
+            function enableChatInterface(enable) {
+                $("#message-input").prop("disabled", !enable)
+                    .attr("placeholder", enable ? "Nhập tin nhắn..." : "Mất kết nối...");
+                $("#send-button").prop("disabled", !enable);
+            }
+
+            // Tải tin nhắn cũ
+            function loadPreviousMessages() {
+                displaySystemMessage("Đang tải tin nhắn...");
+
+                $.ajax({
+                    url: `/api/v1/chat/${groupID}`,
+                    method: "GET",
+                    dataType: "json",
+                    success: function (data) {
+                        $("#chat-area").empty();
+                        if (data.data && data.data.length > 0) {
+                            data.data.forEach(message => {
+                                displayMessage(message);
+                            });
+                        } else {
+                            displaySystemMessage("Chưa có tin nhắn nào");
+                        }
+                    },
+                    error: function (err) {
+                        console.error("Lỗi khi tải tin nhắn:", err);
+                        displaySystemMessage("Không thể tải tin nhắn. Vui lòng làm mới trang.");
+                    }
+                });
+            }
+
+            function updateOnlineUsersDisplay() {
+                // Kiểm tra xem đã có phần tử hiển thị người dùng online chưa
+                if ($("#online-users-count").length === 0) {
+                    // Tạo phần tử hiển thị nếu chưa có
+                    const $onlineInfo = $("<div>")
+                        .attr("id", "online-users-container")
+                        .addClass("online-users-info")
+                        .css({
+                            padding: "5px 10px",
+                            backgroundColor: "#f8f8f8",
+                            borderBottom: "1px solid #ddd",
+                            color: "#555",
+                            fontSize: "14px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between"
+                        });
+
+                    const $countContainer = $("<div>")
+                        .attr("id", "online-users-count")
+                        .html(`<strong>${onlineUsers.count}</strong> người dùng đang online`);
+
+                    const $toggleBtn = $("<button>")
+                        .attr("id", "toggle-users-list")
+                        .text("Hiển thị")
+                        .css({
+                            fontSize: "12px",
+                            padding: "2px 8px",
+                            backgroundColor: "#e0e0e0",
+                            border: "1px solid #ccc",
+                            borderRadius: "3px",
+                            cursor: "pointer"
+                        })
+                        .on("click", toggleOnlineUsersList);
+
+                    $onlineInfo.append($countContainer).append($toggleBtn);
+
+                    // Tạo danh sách người dùng (ẩn ban đầu)
+                    const $usersList = $("<div>")
+                        .attr("id", "online-users-list")
+                        .css({
+                            display: "none",
+                            margin: "5px 0",
+                            padding: "5px",
+                            backgroundColor: "#f0f0f0",
+                            borderRadius: "3px",
+                            maxHeight: "100px",
+                            overflowY: "auto"
+                        });
+
+                    // Chèn vào đầu khu vực chat
+                    $("#chat-container").prepend($onlineInfo).prepend($usersList);
+                } else {
+                    // Cập nhật thông tin nếu đã có phần tử
+                    $("#online-users-count").html(`<strong>${onlineUsers.count}</strong> người dùng đang online`);
+                }
+
+                // Cập nhật danh sách người dùng
+                const $usersList = $("#online-users-list");
+                $usersList.empty();
+                if (onlineUsers.users.length > 0) {
+                    const $userList = $("<ul>").css({
+                        listStyle: "none",
+                        margin: 0,
+                        padding: 0
+                    });
+                    onlineUsers.users.forEach(user => {
+                        const isCurrentUser = user.user_id === userID;
+                        $("<li>")
+                            .text(isCurrentUser ? `${user.user_name} (bạn)` : user.user_name)
+                            .css({
+                                padding: "2px 0",
+                                fontWeight: isCurrentUser ? "bold" : "normal"
+                            })
+                            .appendTo($userList);
+                    });
+
+                    $usersList.append($userList);
+                } else {
+                    $usersList.text("Không có người dùng online");
+                }
+            }
+
+            // Hàm để ẩn/hiện danh sách người dùng online
+            function toggleOnlineUsersList() {
+                const $usersList = $("#online-users-list");
+                const $toggleBtn = $("#toggle-users-list");
+
+                if ($usersList.is(":visible")) {
+                    $usersList.slideUp(200);
+                    $toggleBtn.text("Hiển thị");
+                } else {
+                    $usersList.slideDown(200);
+                    $toggleBtn.text("Ẩn");
+                }
+            }
+            // Quay lại
+            window.goBack = function () {
+                cleanupWebSocket();
+                window.location.href = "/";
+            };
+        });
+    </script>
+
+</body>
+
+</html>
