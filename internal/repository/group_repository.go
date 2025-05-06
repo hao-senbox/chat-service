@@ -25,7 +25,7 @@ type GroupRepository interface {
 type GroupMemberRepository interface {
 	AddUserToGroup(ctx context.Context, group *models.GroupMember) error
 	GetGroupMembers(ctx context.Context, groupID primitive.ObjectID) ([]*models.GroupMember, error)
-	GetgroupMemberDetail(ctx context.Context, userId string) (*models.GroupMember, error)
+	GetgroupMemberDetail(ctx context.Context, userId string, groupID primitive.ObjectID) (*models.GroupMember, error)
 	DeleteUserFromGroup(ctx context.Context, groupID primitive.ObjectID, userID string) error
 }
 
@@ -213,11 +213,11 @@ func (r *groupRepository) UpdateGroup(ctx context.Context, groupID primitive.Obj
 	return nil
 }
 
-func (r *groupMemberRepository) GetgroupMemberDetail(ctx context.Context, userID string) (*models.GroupMember, error) {
+func (r *groupMemberRepository) GetgroupMemberDetail(ctx context.Context, userID string, groupID primitive.ObjectID) (*models.GroupMember, error) {
 
 	var groupMember models.GroupMember
 
-	filter := bson.M{"user_id": userID}
+	filter := bson.M{"user_id": userID, "group_id": groupID}
 
 	err := r.collection.FindOne(ctx, filter).Decode(&groupMember)
 	if err != nil {

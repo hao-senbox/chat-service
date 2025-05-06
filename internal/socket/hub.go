@@ -63,9 +63,10 @@ func NewHub(messageRepo repository.ChatRepository, userService service.UserServi
 		onlineUsersMutex: sync.RWMutex{},
 		messageRepo:      messageRepo,
 
-		userCache:    make(map[string]*UserInfo),
-		userCacheTTL: 24 * time.Hour,
-		userService:  userService,
+		userCache:      make(map[string]*UserInfo),
+		userCacheMutex: sync.RWMutex{},
+		userCacheTTL:   24 * time.Hour,
+		userService:    userService,
 	}
 }
 
@@ -256,10 +257,14 @@ func (h *Hub) Run() {
 				CreatedAt: time.Now(),
 			}
 
-			err = h.messageRepo.SaveMessage(context.Background(), &dbMsg)
-			if err != nil {
-				log.Printf("Error saving message: %v", err)
-			}
+			msgToSave := dbMsg
+
+			go func() {
+				err := h.messageRepo.SaveMessage(context.Background(), &msgToSave)
+				if err != nil {
+					log.Printf("Error saving message: %v", err)
+				}
+			}()
 
 			// Broadcast đến mọi người trong room
 			h.roomsMutex.RLock()

@@ -3,12 +3,11 @@ package api
 import (
 	"chat-service/internal/service"
 	"chat-service/internal/socket"
-
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterSocketRouters(r *gin.Engine, hub *socket.Hub) {
-	r.GET("/ws/:user_id/:group_id", socket.ServeWsGin(hub))
+func RegisterSocketRouters(r *gin.Engine, hub *socket.Hub, chatService service.ChatService) {
+	r.GET("/ws/:user_id/:group_id", UserInGroupMiddleware(chatService), socket.ServeWsGin(hub))
 }
 
 func RegisterChatRouters(r *gin.Engine, chatService service.ChatService) {

@@ -100,7 +100,6 @@ func (c *callAPI) GetUserInfor(userID string) map[string]interface{} {
 
 	var userData interface{}
 	json.Unmarshal([]byte(res), &userData)
-	fmt.Printf("User data: %v\n", userData)
 	if userData == nil {
 		fmt.Println("User data is nil")
 		return nil

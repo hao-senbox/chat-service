@@ -174,7 +174,7 @@ func (s *groupService) AddUserToGroup(ctx context.Context, group *models.GroupUs
         return fmt.Errorf("failed to get group detail: %w", err)
     }
 
-    _, err = s.groupUserRepository.GetgroupMemberDetail(ctx, group.UserID)
+    _, err = s.groupUserRepository.GetgroupMemberDetail(ctx, group.UserID, objectID)
     if err == nil {
         return fmt.Errorf("user already in group")
     } else if err != mongo.ErrNoDocuments {
