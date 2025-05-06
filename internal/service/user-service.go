@@ -1,6 +1,7 @@
 package service
 
 import (
+	"chat-service/internal/models"
 	"chat-service/pkg/consul"
 	"encoding/json"
 	"fmt"
@@ -10,15 +11,8 @@ import (
 	"github.com/hashicorp/consul/api"
 )
 
-type UserInfor struct {
-	UserID   string `json:"user_id"`
-	UserName string `json:"user_name"`
-	FullName string `json:"full_name"`
-	Avartar  string `json:"avatar"`
-}
-
 type UserService interface {
-	GetUserInfor(userID string) (*UserInfor, error)
+	GetUserInfor(userID string) (*models.UserInfor, error)
 }
 
 type userService struct {
@@ -65,7 +59,7 @@ func NewServiceAPI(client *api.Client, serviceName string) *callAPI {
 	}
 }
 
-func (u *userService) GetUserInfor(userID string) (*UserInfor, error) {
+func (u *userService) GetUserInfor(userID string) (*models.UserInfor, error) {
     data := u.client.GetUserInfor(userID)
     if data == nil {
         return nil, fmt.Errorf("no user data found for userID: %s", userID)
@@ -76,7 +70,7 @@ func (u *userService) GetUserInfor(userID string) (*UserInfor, error) {
         return nil, fmt.Errorf("invalid response format: missing 'data' field")
     }
 
-    return &UserInfor{
+    return &models.UserInfor{
         UserID:   safeString(innerData["id"]),
         UserName: safeString(innerData["username"]),
         FullName: safeString(innerData["fullname"]),

@@ -11,9 +11,9 @@ func RegisterSocketRouters(r *gin.Engine, hub *socket.Hub) {
 	r.GET("/ws/:user_id/:group_id", socket.ServeWsGin(hub))
 }
 
-func RegisterChatRouters(r *gin.Engine, chatService service.ChatService, userService service.UserService) {
+func RegisterChatRouters(r *gin.Engine, chatService service.ChatService) {
 
-	handlers := NewChatService(chatService, userService)
+	handlers := NewChatService(chatService)
 
 	chatGroup := r.Group("/api/v1/chat")
 	{
@@ -30,11 +30,15 @@ func RegisterGroupRouters(r *gin.Engine, groupService service.GroupService) {
 	{
 		//Group 
 		groupGroup.GET("", handlers.GetAllGroups)
+		groupGroup.GET("/:group_id", handlers.GetGroupDetail)
 		groupGroup.POST("", handlers.CreateGroup)
+		groupGroup.PUT("/:group_id", handlers.UpdateGroup)
+		groupGroup.DELETE("/:group_id", handlers.DeleteGroup)
 		
 
 		//Group User
-		groupGroup.POST("/user", handlers.CreateGroupUser)
+		groupGroup.POST("/user", handlers.AddUserToGroup)
 		groupGroup.GET("/user/:user_id", handlers.GetUserGroups)
+		groupGroup.DELETE("/user/:group_id", handlers.RemoveUserFromGroup)
 	}
 }

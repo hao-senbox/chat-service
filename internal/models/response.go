@@ -9,6 +9,15 @@ type APIResponse struct  {
 	ErrorCode string `json:"error_code,omitempty"`
 }
 
+type GroupWithMembers struct {
+	Group Group `json:"group"`
+	Members []GroupMemberWithUserInfor `json:"members"`
+}
+
+type GroupMemberWithUserInfor struct {
+	GroupMember *GroupMember `json:"group_member"`
+}
+
 const (
     ErrInvalidOperation   = "ERR_INVALID_OPERATION"
     ErrInvalidRequest     = "ERR_INVALID_REQUEST"

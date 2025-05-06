@@ -56,15 +56,15 @@ func main() {
 
 	groupCollection := mongoClient.Database(cfg.MongoDB).Collection("group")
 	groupMemberCollection := mongoClient.Database(cfg.MongoDB).Collection("group_member")
-	groupRepository := repository.NewGroupRepository(groupCollection, groupMemberCollection)
+	userService := service.NewUserService(consulClient)
+	groupRepository := repository.NewGroupRepository(groupCollection, groupMemberCollection, nil)
 	groupMemberRepository := repository.NewGroupMemberRepository(groupMemberCollection, groupRepository)
-	groupService := service.NewGroupService(groupRepository, groupMemberRepository)
+	groupRepository.SetGroupMemberRepo(groupMemberRepository)
+	groupService := service.NewGroupService(groupRepository, groupMemberRepository, userService)
 
 	messagesCollection := mongoClient.Database(cfg.MongoDB).Collection("messages")
 	messagesRepository := repository.NewChatRepository(messagesCollection, groupMemberCollection)
-	messageService := service.NewChatService(messagesRepository)
-
-	userService := service.NewUserService(consulClient)
+	messageService := service.NewChatService(messagesRepository, userService)
 
 	hub := socket.NewHub(messagesRepository, userService)
 	go hub.Run()
@@ -73,7 +73,7 @@ func main() {
 	router.LoadHTMLGlob("web/templates/*")
 	api.RegisterSocketRouters(router, hub)
 	api.RegisterGroupRouters(router, groupService)
-	api.RegisterChatRouters(router, messageService, userService)
+	api.RegisterChatRouters(router, messageService)
 
 	router.GET("/:user_id", func(c *gin.Context) {
 		userID := c.Param("user_id")
@@ -143,3 +143,4 @@ func connectToMongoDB(uri string) (*mongo.Client, error) {
 	log.Println("Successfully connected to MongoDB")
 	return client, nil
 }
+

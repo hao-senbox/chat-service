@@ -19,7 +19,32 @@ func NewGroupService(groupService service.GroupService) *GroupHandlers {
 }
 
 func (h *GroupHandlers) GetAllGroups(c *gin.Context) {
+	
+	groups, err := h.groupService.GetAllGroups(c)
+	if err != nil {
+		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
+		return
+	}
 
+	SendSuccess(c, http.StatusOK, "Get all groups successfully", groups)
+}
+
+func (h *GroupHandlers) GetGroupDetail(c *gin.Context) {
+
+	groupID := c.Param("group_id")
+
+	if groupID == "" {
+		SendError(c, http.StatusBadRequest, nil, models.ErrInvalidRequest)
+		return
+	}
+
+	group, err := h.groupService.GetGroupDetail(c, groupID)
+	if err != nil {
+		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
+		return
+	}
+
+	SendSuccess(c, http.StatusOK, "Get group detail successfully", group)
 }
 
 func (h *GroupHandlers) CreateGroup(c *gin.Context) {
@@ -38,7 +63,7 @@ func (h *GroupHandlers) CreateGroup(c *gin.Context) {
 	SendSuccess(c, http.StatusOK, "Group created successfully", nil)
 }
 
-func (h *GroupHandlers) CreateGroupUser(c *gin.Context) {
+func (h *GroupHandlers) AddUserToGroup(c *gin.Context) {
 
 	var req models.GroupUserRequest
 
@@ -46,7 +71,7 @@ func (h *GroupHandlers) CreateGroupUser(c *gin.Context) {
 		SendError(c, http.StatusBadRequest, err, models.ErrInvalidRequest)
 	}
 
-	if err := h.groupService.CreateGroupUser(c, &req); err != nil {
+	if err := h.groupService.AddUserToGroup(c, &req); err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return
 	}
@@ -71,4 +96,60 @@ func (h *GroupHandlers) GetUserGroups(c *gin.Context) {
 
 	SendSuccess(c, http.StatusOK, "Get user groups successfully", groups)
 	
+}
+
+func (h *GroupHandlers) UpdateGroup(c *gin.Context) {
+
+	var req models.GroupRequest
+
+	groupID := c.Param("group_id")
+	if groupID == "" {
+		SendError(c, http.StatusBadRequest, nil, models.ErrInvalidRequest)
+		return
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, http.StatusBadRequest, err, models.ErrInvalidRequest)
+		return
+	}
+
+	if err := h.groupService.UpdateGroup(c, groupID, &req); err != nil {
+		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
+		return
+	}
+
+	SendSuccess(c, http.StatusOK, "Group updated successfully", nil)
+}
+
+func (h* GroupHandlers) DeleteGroup(c *gin.Context) {
+
+	groupID := c.Param("group_id")
+	if groupID == "" {
+		SendError(c, http.StatusBadRequest, nil, models.ErrInvalidRequest)
+		return
+	}
+
+	if err := h.groupService.DeleteGroup(c, groupID); err != nil {
+		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
+		return
+	}
+
+	SendSuccess(c, http.StatusOK, "Group deleted successfully", nil)
+}
+
+func (h *GroupHandlers) RemoveUserFromGroup(c *gin.Context) {
+
+	groupID := c.Param("group_id")
+	var req models.GroupUserRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, http.StatusBadRequest, err, models.ErrInvalidRequest)
+	}
+
+	if err := h.groupService.RemoveUserFromGroup(c, groupID, &req); err != nil {
+		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
+		return
+	}
+
+	SendSuccess(c, http.StatusOK, "Remove user from group successfully", nil)
 }
