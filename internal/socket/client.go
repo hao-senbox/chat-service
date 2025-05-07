@@ -58,7 +58,7 @@ func (c *Client) readPump() {
     c.conn.SetReadDeadline(time.Now().Add(pongWait))
     c.conn.SetPongHandler(func(string) error { 
         // Ghi log khi nhận được pong để debug
-        log.Printf("Received pong from client %s", c.userID)
+        // log.Printf("Received pong from client %s", c.userID)
         c.conn.SetReadDeadline(time.Now().Add(pongWait))
         return nil 
     })
@@ -76,7 +76,7 @@ func (c *Client) readPump() {
 
         var msgType MessageType
         if err := json.Unmarshal(message, &msgType); err == nil && msgType.Type == "ping" {
-            log.Printf("Received ping from client %s", c.userID)
+            // log.Printf("Received ping from client %s", c.userID)
             
             // Trả lời pong ngay lập tức
             pongMessage, _ := json.Marshal(map[string]string{"type": "pong"})
@@ -143,7 +143,7 @@ func (c *Client) writePump() {
                 log.Printf("Error sending ping to client %s: %v", c.userID, err)
                 return
             }
-            log.Printf("Sent ping to client %s", c.userID)
+            // log.Printf("Sent ping to client %s", c.userID)
         }
     }
 }

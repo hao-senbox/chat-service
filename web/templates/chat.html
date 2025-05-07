@@ -5,92 +5,319 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ .title }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        html,
-        body {
-            height: 100%;
+        :root {
+            --primary-color: #4361ee;
+            --light-primary: #eef2ff;
+            --secondary-color: #3f37c9;
+            --success-color: #4CAF50;
+            --light-gray: #f8f9fa;
+            --medium-gray: #e9ecef;
+            --dark-gray: #6c757d;
+            --border-color: #dee2e6;
+            --sent-message: #e3f2fd;
+            --received-message: #f8f9fa;
+            --shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: Arial, sans-serif;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fb;
+            color: #333;
         }
 
         .container {
             display: flex;
             flex-direction: column;
             height: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            box-shadow: var(--shadow);
         }
 
         .header {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: white;
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            z-index: 10;
+        }
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+
+        .back-button {
+            background-color: transparent;
+            border: none;
+            color: var(--dark-gray);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 50%;
+            margin-right: 15px;
+            transition: background-color 0.2s;
+        }
+
+        .back-button:hover {
+            background-color: var(--light-gray);
+        }
+
+        .group-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        #group-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .group-status {
+            font-size: 0.8rem;
+            color: var(--dark-gray);
+        }
+
+        #chat-container {
+            margin-top: 10px;
+        }
+
+        .online-users-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 15px;
+            gap: 10px;
+            background-color: var(--light-gray);
+            border-radius: var(--radius);
+            margin-top: 5px;
+            font-size: 0.9rem;
+        }
+
+        #toggle-users-list {
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 7px 15px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        #toggle-users-list:hover {
+            background-color: var(--light-primary);
+            border-color: var(--primary-color);
+        }
+
+        #online-users-list {
+            background-color: white;
+            border-radius: var(--radius);
             padding: 10px;
-            background-color: #f0f0f0;
-            border-bottom: 1px solid #ddd;
+            margin-top: 8px;
+            box-shadow: var(--shadow);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        #online-users-list ul {
+            list-style: none;
+        }
+
+        #online-users-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        #online-users-list li:last-child {
+            border-bottom: none;
         }
 
         .chat-area {
             flex-grow: 1;
             overflow-y: auto;
-            padding: 10px;
-        }
-
-        .message-form {
+            padding: 20px;
+            background-color: #f5f7fb;
             display: flex;
-            padding: 10px;
-            border-top: 1px solid #ddd;
-        }
-
-        .message-input {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .send-button {
-            margin-left: 10px;
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .message {
-            margin-bottom: 10px;
-            padding: 10px;
-            border-radius: 4px;
-            max-width: 70%;
-        }
-
-        .message-received {
-            background-color: #f1f0f0;
-            align-self: flex-start;
-        }
-
-        .message-sent {
-            background-color: #DCF8C6;
-            align-self: flex-end;
-            margin-left: auto;
+            flex-direction: column;
         }
 
         .message-container {
             display: flex;
             flex-direction: column;
+            gap: 15px;
         }
 
-        .back-button {
-            margin-right: 10px;
-            padding: 5px 10px;
-            background-color: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            cursor: pointer;
+        .message {
+            position: relative;
+            padding: 12px 15px;
+            border-radius: var(--radius);
+            max-width: 75%;
+            box-shadow: var(--shadow);
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .message-received {
+            align-self: flex-start;
+            background-color: var(--received-message);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-sent {
+            align-self: flex-end;
+            background-color: var(--sent-message);
+            border-bottom-right-radius: 4px;
+            color: #333;
+        }
+
+        .message-system {
+            align-self: center;
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--dark-gray);
+            font-size: 0.85rem;
+            padding: 8px 15px;
+            border-radius: 20px;
+            max-width: 90%;
+            text-align: center;
+            box-shadow: none;
+        }
+
+        .message-header {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .message-content {
+            font-size: 0.95rem;
         }
 
         .timestamp {
-            font-size: 0.8em;
-            color: gray;
-            margin-top: 2px;
+            font-size: 0.75rem;
+            color: var(--dark-gray);
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        .message-form {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background-color: white;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .message-input-container {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            background-color: var(--light-gray);
+            border-radius: 24px;
+            padding: 0 15px;
+            transition: all 0.2s;
+        }
+
+        .message-input-container:focus-within {
+            background-color: white;
+            box-shadow: 0 0 0 2px var(--primary-color);
+        }
+
+        .message-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 12px 0;
+            font-size: 0.95rem;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .send-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            margin-left: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+
+        .send-button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .send-button:disabled {
+            background-color: var(--medium-gray);
+            cursor: not-allowed;
+        }
+
+        .date-divider {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            color: var(--dark-gray);
+            font-size: 0.8rem;
+        }
+
+        .date-divider::before,
+        .date-divider::after {
+            content: "";
+            flex: 1;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .date-divider::before {
+            margin-right: 10px;
+        }
+
+        .date-divider::after {
+            margin-left: 10px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .message {
+                max-width: 85%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 10px 15px;
+            }
+            
+            .chat-area {
+                padding: 15px;
+            }
+            
+            .message-form {
+                padding: 10px 15px;
+            }
+            
+            .message {
+                max-width: 90%;
+            }
         }
     </style>
 </head>
@@ -98,11 +325,16 @@
 <body>
     <div class="container">
         <div class="header">
-            <button class="back-button" onclick="goBack()">Back</button>
-            <span id="group-name">Group Chat</span>
-            <div id="chat-container">
-
+            <div class="header-content">
+                <button class="back-button" onclick="goBack()">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div class="group-info">
+                    <div id="group-name">Group Chat</div>
+                    <div class="group-status" id="typing-status"></div>
+                </div>
             </div>
+            <div id="chat-container"></div>
         </div>
 
         <div id="chat-area" class="chat-area message-container">
@@ -110,8 +342,12 @@
         </div>
 
         <div class="message-form">
-            <input type="text" id="message-input" class="message-input" placeholder="Type a message...">
-            <button id="send-button" class="send-button">Send</button>
+            <div class="message-input-container">
+                <input type="text" id="message-input" class="message-input" placeholder="Type a message...">
+            </div>
+            <button id="send-button" class="send-button">
+                <i class="fas fa-paper-plane"></i>
+            </button>
         </div>
     </div>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -140,6 +376,7 @@
             };
             // Khởi tạo
             loadPreviousMessages();
+            loadInformationGroup();
             connectWebSocket();
             // Đăng ký sự kiện
             $("#send-button").on("click", sendMessage);
@@ -322,12 +559,62 @@
             function displayMessage(message) {
                 const formatted = formattedDate(message.created_at);
                 const isSent = message.sender_id === userID;
+                
+                // Check if we need to add a date divider
+                addDateDividerIfNeeded(message.created_at);
+                
                 const $message = $("<div>")
-                    .addClass(`message ${isSent ? 'message-sent' : 'message-received'}`)
-                    .html(`<strong>${isSent ? 'Bạn' : message.sender_infor.user_name}:</strong> ${message.content} <div class="timestamp">${formatted}</div>`);
+                    .addClass(`message ${isSent ? 'message-sent' : 'message-received'}`);
+                
+                const $header = $("<div>")
+                    .addClass("message-header")
+                    .text(isSent ? 'Bạn' : message.sender_infor.user_name);
+                
+                const $content = $("<div>")
+                    .addClass("message-content")
+                    .text(message.content);
+                
+                const $timestamp = $("<div>")
+                    .addClass("timestamp")
+                    .text(formatted);
+                
+                $message.append($header).append($content).append($timestamp);
 
                 $("#chat-area").append($message)
                     .scrollTop($("#chat-area")[0].scrollHeight);
+            }
+
+            // Add date divider if needed
+            function addDateDividerIfNeeded(dateStr) {
+                if (!dateStr) return;
+                
+                const messageDate = new Date(dateStr);
+                const dateString = messageDate.toLocaleDateString('vi-VN');
+                
+                // Check if we already have this date divider
+                const existingDivider = $(`.date-divider[data-date="${dateString}"]`);
+                if (existingDivider.length === 0) {
+                    // Format the date nicely
+                    let dateText;
+                    const today = new Date();
+                    const yesterday = new Date(today);
+                    yesterday.setDate(today.getDate() - 1);
+                    
+                    if (messageDate.toDateString() === today.toDateString()) {
+                        dateText = "Hôm nay";
+                    } else if (messageDate.toDateString() === yesterday.toDateString()) {
+                        dateText = "Hôm qua";
+                    } else {
+                        dateText = dateString;
+                    }
+                    
+                    const $divider = $("<div>")
+                        .addClass("date-divider")
+                        .attr("data-date", dateString)
+                        .text(dateText);
+                    
+                    $("#chat-area").append($divider);
+                }
             }
 
             function formattedDate(inputDate) {
@@ -335,21 +622,7 @@
 
                 if (inputDate) {
                     const dateObj = new Date(inputDate);
-                    const now = new Date();
-
-                    const isToday = dateObj.toDateString() === now.toDateString();
-
-                    const yesterday = new Date();
-                    yesterday.setDate(now.getDate() - 1);
-                    const isYesterday = dateObj.toDateString() === yesterday.toDateString();
-
-                    if (isToday) {
-                        timeText = `Hôm nay, ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
-                    } else if (isYesterday) {
-                        timeText = `Hôm qua, ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
-                    } else {
-                        timeText = `${dateObj.toLocaleDateString('vi-VN')}, ${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
-                    }
+                    timeText = `${dateObj.getHours().toString().padStart(2, '0')}:${dateObj.getMinutes().toString().padStart(2, '0')}`;
                 }
 
                 return timeText;
@@ -359,11 +632,6 @@
             function displaySystemMessage(text) {
                 const $message = $("<div>")
                     .addClass("message message-system")
-                    .css({
-                        backgroundColor: "#ffeeee",
-                        textAlign: "center",
-                        color: "#666"
-                    })
                     .text(text);
 
                 $("#chat-area").append($message)
@@ -375,6 +643,12 @@
                 $("#message-input").prop("disabled", !enable)
                     .attr("placeholder", enable ? "Nhập tin nhắn..." : "Mất kết nối...");
                 $("#send-button").prop("disabled", !enable);
+                
+                if (!enable) {
+                    $(".message-input-container").css("opacity", "0.7");
+                } else {
+                    $(".message-input-container").css("opacity", "1");
+                }
             }
 
             // Tải tin nhắn cũ
@@ -402,39 +676,41 @@
                 });
             }
 
+
+            function loadInformationGroup() {
+                $.ajax({
+                    url: `/api/v1/group/${groupID}`,
+                    method: "GET",
+                    dataType: "json",
+                    success: function (data) {
+                        console.log(data.data.group.name);
+                        if (data.status_code === 200) {
+                            $("#group-name").text(data.data.group.name);
+                        } else {
+                            alert('Failed to load group information!');
+                        }
+                    },
+                    error: function (err) {
+                        console.error('Error loading group information:', err);
+                        alert('Error loading group information!');
+                    }
+                });
+            }
             function updateOnlineUsersDisplay() {
                 // Kiểm tra xem đã có phần tử hiển thị người dùng online chưa
                 if ($("#online-users-count").length === 0) {
                     // Tạo phần tử hiển thị nếu chưa có
                     const $onlineInfo = $("<div>")
                         .attr("id", "online-users-container")
-                        .addClass("online-users-info")
-                        .css({
-                            padding: "5px 10px",
-                            backgroundColor: "#f8f8f8",
-                            borderBottom: "1px solid #ddd",
-                            color: "#555",
-                            fontSize: "14px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between"
-                        });
+                        .addClass("online-users-info");
 
                     const $countContainer = $("<div>")
                         .attr("id", "online-users-count")
-                        .html(`<strong>${onlineUsers.count}</strong> người dùng đang online`);
+                        .html(`<i class="fas fa-circle" style="color: #4CAF50; font-size: 0.7rem; margin-right: 5px;"></i><strong>${onlineUsers.count}</strong> người dùng đang online`);
 
                     const $toggleBtn = $("<button>")
                         .attr("id", "toggle-users-list")
                         .text("Hiển thị")
-                        .css({
-                            fontSize: "12px",
-                            padding: "2px 8px",
-                            backgroundColor: "#e0e0e0",
-                            border: "1px solid #ccc",
-                            borderRadius: "3px",
-                            cursor: "pointer"
-                        })
                         .on("click", toggleOnlineUsersList);
 
                     $onlineInfo.append($countContainer).append($toggleBtn);
@@ -442,40 +718,24 @@
                     // Tạo danh sách người dùng (ẩn ban đầu)
                     const $usersList = $("<div>")
                         .attr("id", "online-users-list")
-                        .css({
-                            display: "none",
-                            margin: "5px 0",
-                            padding: "5px",
-                            backgroundColor: "#f0f0f0",
-                            borderRadius: "3px",
-                            maxHeight: "100px",
-                            overflowY: "auto"
-                        });
+                        .css("display", "none");
 
                     // Chèn vào đầu khu vực chat
                     $("#chat-container").prepend($onlineInfo).prepend($usersList);
                 } else {
                     // Cập nhật thông tin nếu đã có phần tử
-                    $("#online-users-count").html(`<strong>${onlineUsers.count}</strong> người dùng đang online`);
+                    $("#online-users-count").html(`<i class="fas fa-circle" style="color: #4CAF50; font-size: 0.7rem; margin-right: 5px;"></i><strong>${onlineUsers.count}</strong> người dùng đang online`);
                 }
 
                 // Cập nhật danh sách người dùng
                 const $usersList = $("#online-users-list");
                 $usersList.empty();
                 if (onlineUsers.users.length > 0) {
-                    const $userList = $("<ul>").css({
-                        listStyle: "none",
-                        margin: 0,
-                        padding: 0
-                    });
+                    const $userList = $("<ul>");
                     onlineUsers.users.forEach(user => {
                         const isCurrentUser = user.user_id === userID;
                         $("<li>")
-                            .text(isCurrentUser ? `${user.user_name} (bạn)` : user.user_name)
-                            .css({
-                                padding: "2px 0",
-                                fontWeight: isCurrentUser ? "bold" : "normal"
-                            })
+                            .html(`<i class="fas fa-circle" style="color: #4CAF50; font-size: 0.7rem; margin-right: 5px;"></i>${isCurrentUser ? `<strong>${user.user_name} (bạn)</strong>` : user.user_name}`)
                             .appendTo($userList);
                     });
 
@@ -505,7 +765,6 @@
             };
         });
     </script>
-
 </body>
 
 </html>

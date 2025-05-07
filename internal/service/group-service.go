@@ -25,13 +25,15 @@ type GroupService interface {
 type groupService struct {
 	groupRepository     repository.GroupRepository
 	groupUserRepository repository.GroupMemberRepository
+	chatRepository      repository.ChatRepository
 	userService         UserService
 }
 
-func NewGroupService(groupRepository repository.GroupRepository, groupUserRepository repository.GroupMemberRepository, userService UserService) GroupService {
+func NewGroupService(groupRepository repository.GroupRepository, groupUserRepository repository.GroupMemberRepository, chatRepository repository.ChatRepository, userService UserService) GroupService {
 	return &groupService{
 		groupRepository:     groupRepository,
 		groupUserRepository: groupUserRepository,
+		chatRepository:      chatRepository,
 		userService:         userService,
 	}
 }
@@ -241,6 +243,11 @@ func (s *groupService) DeleteGroup(ctx context.Context, groupID string) error {
 	err = s.groupRepository.DeleteGroup(ctx, objectID)
 	if err != nil {
 		return fmt.Errorf("failed to delete group: %w", err)
+	}
+
+	err = s.chatRepository.DeleteMessageGroup(ctx, objectID)
+	if err != nil {
+		return fmt.Errorf("failed to delete group members: %w", err)
 	}
 
 	return nil

@@ -13,7 +13,6 @@ func UserInGroupMiddleware(chatService service.ChatService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.Param("user_id")
 		groupID := c.Param("group_id")
-		fmt.Printf("User ID: %s, Group ID: %s\n", userID, groupID)
 		if userID == "" || groupID == "" {
 			SendError(c, http.StatusBadRequest, fmt.Errorf("user ID or group ID be not empty"), models.ErrInvalidRequest)
 			return

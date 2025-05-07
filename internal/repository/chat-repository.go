@@ -12,6 +12,7 @@ type ChatRepository interface {
 	SaveMessage(ctx context.Context, message *models.Message) error
     IsUserInGroup(ctx context.Context, userID string, groupID primitive.ObjectID) (bool, error)
     GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID) ([]*models.Message, error)
+    DeleteMessageGroup(ctx context.Context, groupID primitive.ObjectID) error
 }
 
 type chatRepository struct {
@@ -62,4 +63,16 @@ func (r *chatRepository) GetMessagesByGroupID(ctx context.Context, groupID primi
     }
     
     return messages, nil
+}
+
+func (r *chatRepository) DeleteMessageGroup(ctx context.Context, groupID primitive.ObjectID) error {
+
+    filter := bson.M{"group_id": groupID}
+
+    _, err := r.collection.DeleteMany(ctx, filter)
+    if err != nil {
+        return err
+    }
+
+    return nil
 }

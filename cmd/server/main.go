@@ -56,15 +56,17 @@ func main() {
 
 	groupCollection := mongoClient.Database(cfg.MongoDB).Collection("group")
 	groupMemberCollection := mongoClient.Database(cfg.MongoDB).Collection("group_member")
+	messagesCollection := mongoClient.Database(cfg.MongoDB).Collection("messages")
+
 	userService := service.NewUserService(consulClient)
+
+	messagesRepository := repository.NewChatRepository(messagesCollection, groupMemberCollection)
 	groupRepository := repository.NewGroupRepository(groupCollection, groupMemberCollection, nil)
 	groupMemberRepository := repository.NewGroupMemberRepository(groupMemberCollection, groupRepository)
-	groupRepository.SetGroupMemberRepo(groupMemberRepository)
-	groupService := service.NewGroupService(groupRepository, groupMemberRepository, userService)
+	groupService := service.NewGroupService(groupRepository, groupMemberRepository, messagesRepository, userService)
+	messageService := service.NewChatService(messagesRepository, groupService, userService)
 
-	messagesCollection := mongoClient.Database(cfg.MongoDB).Collection("messages")
-	messagesRepository := repository.NewChatRepository(messagesCollection, groupMemberCollection)
-	messageService := service.NewChatService(messagesRepository, userService)
+	groupRepository.SetGroupMemberRepo(groupMemberRepository)
 
 	hub := socket.NewHub(messagesRepository, userService)
 	go hub.Run()
