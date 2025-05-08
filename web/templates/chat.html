@@ -7,6 +7,100 @@
     <title>{{ .title }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+
+        .message {
+            position: relative;
+        }
+
+        .message-actions-container {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            right: -50px; 
+            width: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .message-sent .message-actions-container {
+            left: -50px;
+            right: auto;
+        }
+
+        .message-actions {
+            position: relative;
+            display: none;
+        }
+
+        .message:hover .message-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .message-action-btn {
+            background-color: #e0e0e0;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+
+        .message-action-btn:hover {
+            background-color: #d0d0d0;
+        }
+
+        .message-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            min-width: 120px;
+            z-index: 100;
+            margin-top: 5px;
+            display: none;
+            padding: 5px 0;
+        }
+
+        .message-dropdown.show {
+            display: block;
+        }
+
+        .dropdown-option {
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .dropdown-option:hover {
+            background-color: #f5f5f5;
+        }
+
+        .dropdown-option svg {
+            margin-right: 8px;
+            color: #555;
+        }
+
+        .recall-option {
+            color: #e74c3c;
+        }
+
+        .recall-option svg {
+            color: #e74c3c;
+        }
+
         :root {
             --primary-color: #4361ee;
             --light-primary: #eef2ff;
@@ -492,6 +586,16 @@
                                 return;
                             }
 
+                            if (message.type === 'delete-message') {
+                                const $msgDiv = $(`.message[data-id='${message.id}']`);
+                                if ($msgDiv.length) {
+                                    $msgDiv.find('.message-content').text("Tin nhắn đã bị thu hồi");
+                                    $msgDiv.css("opacity", "0.5");
+                                    $msgDiv.find('.message-controls').remove();
+                                }
+                                return;
+                            }
+
                             if (message.type === "pong") {
                                 console.log("Nhận heartbeat pong");
                                 return;
@@ -620,24 +724,75 @@
 
                 const $message = $("<div>")
                     .addClass(`message ${isSent ? 'message-sent' : 'message-received'}`)
-                    .attr("data-id", message.id)
+                    .attr("data-id", message.id);
+                
                 const $header = $("<div>")
                     .addClass("message-header")
                     .text(isSent ? 'Bạn' : message.sender_infor.user_name);
 
                 const $content = $("<div>")
-                    .addClass("message-content")
-                    .text(message.content);
+                    .addClass("message-content");
+
+                if (message.is_delete) {
+                    $content.text("Tin nhắn đã bị thu hồi");
+                    $message.css("opacity", "0.5");
+                } else {
+                    $content.text(message.content);
+                }
 
                 const $timestamp = $("<div>")
                     .addClass("timestamp")
                     .text(formatted);
+                
+                if (isSent && !message.is_delete) {
+                    // Thêm vùng chứa (container) với khu vực hover rộng hơn
+                    const $actionsContainer = $("<div>")
+                        .addClass("message-actions-container");
+                        
+                    // Thêm dropdown menu cho các hành động
+                    const $actions = $("<div>")
+                        .addClass("message-actions");
+                        
+                    const $actionIcon = $("<button>")
+                        .addClass("message-action-btn")
+                        .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>')
+                        .on("click", function(e) {
+                            e.stopPropagation();
+                            // Đóng tất cả các dropdown khác trước khi mở dropdown hiện tại
+                            $(".message-dropdown").removeClass("show");
+                            $(this).next(".message-dropdown").toggleClass("show");
+                        });
+                        
+                    const $dropdown = $("<div>")
+                        .addClass("message-dropdown");
+                        
+                    const $recallOption = $("<div>")
+                        .addClass("dropdown-option recall-option")
+                        .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg><span>Thu hồi</span>')
+                        .on("click", function() {
+                            recallMessage(message.id);
+                            $(this).closest(".message-dropdown").removeClass("show");
+                        });
+                        
+                    $dropdown.append($recallOption);
+                    $actions.append($actionIcon).append($dropdown);
+                    $actionsContainer.append($actions);
+                    $message.append($actionsContainer);
+                }
 
                 $message.append($header).append($content).append($timestamp);
 
                 $("#chat-area").append($message)
                     .scrollTop($("#chat-area")[0].scrollHeight);
+                
+                // Ẩn dropdown khi click bên ngoài
+                $(document).on("click", function(e) {
+                    if (!$(e.target).closest(".message-actions").length) {
+                        $(".message-dropdown").removeClass("show");
+                    }
+                });
             }
+
 
 
             // Add date divider if needed
@@ -816,6 +971,25 @@
             }
             // Quay lại
 
+            function recallMessage(messageId) {
+                const recallRequest = {
+                    type: "delete-message",
+                    is_delete: true,
+                    sender_id: userID,
+                    group_id: groupID,
+                    id: messageId
+                };
+
+                conn.send(JSON.stringify(recallRequest));
+                
+                const $messageElement = $(`.message[data-id="${messageId}"]`);
+                if ($messageElement.length) {
+                    $messageElement.find(".message-content").text("Tin nhắn đã bị thu hồi");
+                    $messageElement.css("opacity", "0.5");
+                    $messageElement.find(".message-controls").remove();
+                }
+            }
+
             $(document).on('dblclick', '.message-sent', function () {
                 const $msgDiv = $(this);
                 const $contentDiv = $msgDiv.find('.message-content');
@@ -840,6 +1014,7 @@
                 conn.send(JSON.stringify({
                     type: 'edit-message',
                     id: messageId,
+                    is_edit: true,
                     content: newText,
                     sender_id: userID,
                     group_id: groupID

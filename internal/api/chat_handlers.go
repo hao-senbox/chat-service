@@ -70,3 +70,21 @@ func (h *ChatHandlers) DownloadGroupMessages(c *gin.Context) {
 		return
 	}
 }
+
+func (h *ChatHandlers) GetUserInformation(c *gin.Context) {
+
+	userID := c.Param("user_id")
+
+	if userID == "" {
+		SendError(c, http.StatusBadRequest, fmt.Errorf("user ID be not empty"), models.ErrInvalidRequest)
+		return
+	}
+
+	user, err := h.chatService.GetUserInformation(c, userID)
+	if err != nil {
+		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
+		return
+	}
+
+	SendSuccess(c, http.StatusOK, "Get user information successfully", user)
+}

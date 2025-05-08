@@ -57,8 +57,10 @@ func main() {
 	groupCollection := mongoClient.Database(cfg.MongoDB).Collection("group")
 	groupMemberCollection := mongoClient.Database(cfg.MongoDB).Collection("group_member")
 	messagesCollection := mongoClient.Database(cfg.MongoDB).Collection("messages")
+	userOnlineCollection := mongoClient.Database(cfg.MongoDB).Collection("user_online")
 
-	userService := service.NewUserService(consulClient)
+	userOnlineRepository := repository.NewUserOnlineRepository(userOnlineCollection)
+	userService := service.NewUserService(consulClient, userOnlineRepository)
 
 	messagesRepository := repository.NewChatRepository(messagesCollection, groupMemberCollection)
 	groupRepository := repository.NewGroupRepository(groupCollection, groupMemberCollection, nil)
@@ -68,7 +70,7 @@ func main() {
 
 	groupRepository.SetGroupMemberRepo(groupMemberRepository)
 
-	hub := socket.NewHub(messagesRepository, userService)
+	hub := socket.NewHub(messagesRepository, userService, userOnlineRepository)
 	go hub.Run()
 	// Set up router with Gin
 	router := gin.Default()

@@ -16,6 +16,7 @@ type ChatService interface {
 	GetGroupMessages(ctx context.Context, groupID string) ([]*models.MessageWithUser, error)
 	IsUserInGroup(ctx context.Context, userID string, groupID string) (bool, error)
 	DownloadGroupMessages(ctx *gin.Context, groupID string) error
+	GetUserInformation(ctx context.Context, userID string) (*models.UserInfor, error)
 }
 type chatService struct {
 	chatRepository repository.ChatRepository
@@ -30,6 +31,15 @@ func NewChatService(chatRepository repository.ChatRepository, groupService Group
 		groupService:   groupService,
 		userService:    userService,
 	}
+}
+
+func (s *chatService) GetUserInformation(ctx context.Context, userID string) (*models.UserInfor, error) {
+	
+	user, err := s.userService.GetUserOnline(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 func (s *chatService) GetGroupMessages(ctx context.Context, groupID string) ([]*models.MessageWithUser, error) {
@@ -71,6 +81,8 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string) ([]*
 			ID:          msg.ID.Hex(),
 			SenderID:    msg.SenderID,
 			Content:     msg.Content,
+			IsEdit:      msg.IsEdit,
+			IsDelete:    msg.IsDelete,
 			CreatedAt:   msg.CreatedAt,
 			SenderInfor: userInfo,
 		})

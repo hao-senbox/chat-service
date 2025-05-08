@@ -17,6 +17,8 @@ import (
 type Message struct {
 	ID         string    `json:"id"`
 	Type       string    `json:"type"`
+	IsEdit     bool      `json:"is_edit"`
+	IsDelete   bool      `json:"is_delete"`
 	GroupID    string    `json:"group_id"`
 	SenderID   string    `json:"sender_id"`
 	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
@@ -47,6 +49,7 @@ type Hub struct {
 	register         chan *Client
 	unregister       chan *Client
 	messageRepo      repository.ChatRepository
+	userOnlineRepo   repository.UserOnlineRepository
 
 	userCache      map[string]*UserInfo
 	userCacheMutex sync.RWMutex
@@ -54,7 +57,7 @@ type Hub struct {
 	userService    service.UserService
 }
 
-func NewHub(messageRepo repository.ChatRepository, userService service.UserService) *Hub {
+func NewHub(messageRepo repository.ChatRepository, userService service.UserService, userOnlineRepo repository.UserOnlineRepository) *Hub {
 	return &Hub{
 		broadcast:        make(chan []byte, 256),
 		register:         make(chan *Client, 10),
@@ -64,6 +67,7 @@ func NewHub(messageRepo repository.ChatRepository, userService service.UserServi
 		onlineUsers:      make(map[string]map[string]bool),
 		onlineUsersMutex: sync.RWMutex{},
 		messageRepo:      messageRepo,
+		userOnlineRepo:   userOnlineRepo,
 
 		userCache:      make(map[string]*UserInfo),
 		userCacheMutex: sync.RWMutex{},
@@ -183,6 +187,13 @@ func (h *Hub) Run() {
 			h.roomsMutex.Lock()
 			if clients, ok := h.rooms[client.groupID]; ok {
 				if _, found := clients[client]; found {
+					err := h.userOnlineRepo.SaveUserOnline(context.Background(), &models.UserOnline{
+						UserID: client.userID,
+						LastOnline: time.Now(),
+					})
+					if err != nil {
+						log.Printf("Error saving user online: %v", err)
+					}
 					delete(clients, client)
 					close(client.send)
 					log.Printf("Client %s removed from group %s", client.userID, client.groupID)
@@ -232,6 +243,8 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 		h.saveAndBroadcastMessage(msg, message)
 	case "edit-message":
 		h.editAndBroadcastMessage(msg, message)
+	case "delete-message":
+		h.deleteAndBroadcastMessage(msg, message)
 	}
 }
 
@@ -246,6 +259,8 @@ func (h *Hub) saveAndBroadcastMessage(msg Message, message []byte) {
 		GroupID:   groupID,
 		SenderID:  msg.SenderID,
 		Content:   msg.Content,
+		IsEdit:    false,
+		IsDelete:  false,
 		CreatedAt: time.Now(),
 	}
 
@@ -276,6 +291,20 @@ func (h *Hub) editAndBroadcastMessage(msg Message, message []byte) {
 	}()
 }
 
+func (h *Hub) deleteAndBroadcastMessage(msg Message, message []byte) {
+	id, err := primitive.ObjectIDFromHex(msg.ID)
+	if err != nil {
+		log.Printf("Error parsing message ID: %v", err)
+		return
+	}
+	go func() {
+		if err := h.messageRepo.DeleteMessage(context.Background(), id); err != nil {
+			log.Printf("Error deleting message: %v", err)
+		}
+		h.sendToGroup(msg.GroupID, message)
+	}()
+}
+
 func (h *Hub) sendToGroup(groupID string, message []byte) {
 	h.roomsMutex.RLock()
 	defer h.roomsMutex.RUnlock()
@@ -289,4 +318,3 @@ func (h *Hub) sendToGroup(groupID string, message []byte) {
 		}
 	}
 }
-
