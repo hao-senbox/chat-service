@@ -15,6 +15,8 @@ import (
 )
 
 type Message struct {
+	ID         string    `json:"id"`
+	Type       string    `json:"type"`
 	GroupID    string    `json:"group_id"`
 	SenderID   string    `json:"sender_id"`
 	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
@@ -155,15 +157,12 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.register:
 			h.roomsMutex.Lock()
-			// Đảm bảo room tồn tại
 			if _, ok := h.rooms[client.groupID]; !ok {
 				h.rooms[client.groupID] = make(map[*Client]bool)
 			}
-			// Thêm client vào room
 			h.rooms[client.groupID][client] = true
 			h.roomsMutex.Unlock()
 
-			// Thêm vào map theo dõi người dùng online
 			h.onlineUsersMutex.Lock()
 			if _, ok := h.onlineUsers[client.groupID]; !ok {
 				h.onlineUsers[client.groupID] = make(map[string]bool)
@@ -173,27 +172,21 @@ func (h *Hub) Run() {
 
 			log.Printf("Client %s connected to group %s", client.userID, client.groupID)
 
-			go func() {
-				_, err := h.getUserInfo(client.userID)
-				if err != nil {
-					log.Printf("Error fetching user info: %v", err)
-				}
-			}()
+			// Prefetch user info để tránh trễ lần sau
+			go func(uid string) {
+				_, _ = h.getUserInfo(uid)
+			}(client.userID)
 
-			// Gửi thông báo cập nhật số người online sau khi đăng ký thành công
 			h.broadcastOnlineUsersUpdate(client.groupID)
 
 		case client := <-h.unregister:
 			h.roomsMutex.Lock()
-			// Xóa client khỏi room
-			if _, ok := h.rooms[client.groupID]; ok {
-				if _, found := h.rooms[client.groupID][client]; found {
-					delete(h.rooms[client.groupID], client)
+			if clients, ok := h.rooms[client.groupID]; ok {
+				if _, found := clients[client]; found {
+					delete(clients, client)
 					close(client.send)
 					log.Printf("Client %s removed from group %s", client.userID, client.groupID)
-
-					// Nếu room rỗng, xóa room
-					if len(h.rooms[client.groupID]) == 0 {
+					if len(clients) == 0 {
 						delete(h.rooms, client.groupID)
 						log.Printf("Group %s removed as it's empty", client.groupID)
 					}
@@ -201,85 +194,99 @@ func (h *Hub) Run() {
 			}
 			h.roomsMutex.Unlock()
 
-			// Cập nhật map theo dõi người dùng online
-			userOffline := false
 			h.onlineUsersMutex.Lock()
 			if userMap, ok := h.onlineUsers[client.groupID]; ok {
-				// Kiểm tra xem người dùng còn kết nối nào khác trong group không
 				delete(userMap, client.userID)
-				userOffline = true
-
-				// Nếu không còn người dùng nào, xóa map của group
 				if len(userMap) == 0 {
 					delete(h.onlineUsers, client.groupID)
 				}
 			}
 			h.onlineUsersMutex.Unlock()
 
-			// Nếu có người dùng offline, gửi thông báo cập nhật
-			if userOffline {
-				h.broadcastOnlineUsersUpdate(client.groupID)
-			}
+			h.broadcastOnlineUsersUpdate(client.groupID)
 
 		case message := <-h.broadcast:
-			// Parse message để lấy GroupID
-			var msg Message
-			if err := json.Unmarshal(message, &msg); err != nil {
-				log.Printf("Error parsing message: %v", err)
-				continue
-			}
-
-			userInfo, err := h.getUserInfo(msg.SenderID)
-			if err != nil {
-				log.Printf("Error getting sender info: %v", err)
-				// Tiếp tục xử lý ngay cả khi không có thông tin người gửi
-			} else {
-				// Thêm thông tin người dùng vào message
-				msg.SenderInfo = userInfo
-				// Tạo message mới với thông tin người gửi
-				updatedMessage, err := json.Marshal(msg)
-				if err == nil {
-					message = updatedMessage
-				}
-			}
-
-			// Lưu message vào database
-			groupID, err := primitive.ObjectIDFromHex(msg.GroupID)
-			if err != nil {
-				log.Printf("Invalid group ID: %v", err)
-				continue
-			}
-
-			dbMsg := models.Message{
-				GroupID:   groupID,
-				SenderID:  msg.SenderID,
-				Content:   msg.Content,
-				CreatedAt: time.Now(),
-			}
-
-			msgToSave := dbMsg
-
-			go func() {
-				err := h.messageRepo.SaveMessage(context.Background(), &msgToSave)
-				if err != nil {
-					log.Printf("Error saving message: %v", err)
-				}
-			}()
-
-			// Broadcast đến mọi người trong room
-			h.roomsMutex.RLock()
-			if clients, ok := h.rooms[msg.GroupID]; ok {
-				for client := range clients {
-					select {
-					case client.send <- message:
-					default:
-						h.roomsMutex.RUnlock()
-						h.unregister <- client
-						h.roomsMutex.RLock()
-					}
-				}
-			}
-			h.roomsMutex.RUnlock()
+			h.handleBroadcastMessage(message)
 		}
 	}
 }
+
+func (h *Hub) handleBroadcastMessage(message []byte) {
+	var msg Message
+	if err := json.Unmarshal(message, &msg); err != nil {
+		log.Printf("Error parsing message: %v", err)
+		return
+	}
+
+	userInfo, err := h.getUserInfo(msg.SenderID)
+	if err == nil {
+		msg.SenderInfo = userInfo
+	}
+	updatedMessage, err := json.Marshal(msg)
+	if err == nil {
+		message = updatedMessage
+	}
+
+	switch msg.Type {
+	case "message":
+		h.saveAndBroadcastMessage(msg, message)
+	case "edit-message":
+		h.editAndBroadcastMessage(msg, message)
+	}
+}
+
+func (h *Hub) saveAndBroadcastMessage(msg Message, message []byte) {
+	groupID, err := primitive.ObjectIDFromHex(msg.GroupID)
+	if err != nil {
+		log.Printf("Invalid group ID: %v", err)
+		return
+	}
+
+	dbMsg := models.Message{
+		GroupID:   groupID,
+		SenderID:  msg.SenderID,
+		Content:   msg.Content,
+		CreatedAt: time.Now(),
+	}
+
+	go func() {
+		id, err := h.messageRepo.SaveMessage(context.Background(), &dbMsg)
+		if err != nil {
+			log.Printf("Error saving message: %v", err)
+			return
+		}
+		msg.ID = id.Hex()
+		updatedMessage, _ := json.Marshal(msg)
+		h.sendToGroup(msg.GroupID, updatedMessage)
+	}()
+}
+
+func (h *Hub) editAndBroadcastMessage(msg Message, message []byte) {
+	dbMsg := models.EditMessage{
+		ID:       msg.ID,
+		Content:  msg.Content,
+		UpdateAt: time.Now(),
+	}
+
+	go func() {
+		if err := h.messageRepo.EditMessage(context.Background(), &dbMsg); err != nil {
+			log.Printf("Error editing message: %v", err)
+		}
+		h.sendToGroup(msg.GroupID, message)
+	}()
+}
+
+func (h *Hub) sendToGroup(groupID string, message []byte) {
+	h.roomsMutex.RLock()
+	defer h.roomsMutex.RUnlock()
+	if clients, ok := h.rooms[groupID]; ok {
+		for client := range clients {
+			select {
+			case client.send <- message:
+			default:
+				go func(c *Client) { h.unregister <- c }(client)
+			}
+		}
+	}
+}
+

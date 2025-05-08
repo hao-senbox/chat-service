@@ -28,7 +28,8 @@
             padding: 0;
         }
 
-        html, body {
+        html,
+        body {
             height: 100%;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f5f7fb;
@@ -206,6 +207,10 @@
 
         .message-content {
             font-size: 0.95rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5px;
         }
 
         .timestamp {
@@ -295,6 +300,46 @@
             margin-left: 10px;
         }
 
+        input.edit-input {
+            width: 70%;
+            margin-right: 10px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background-color: #f8fafc;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            outline: none;
+        }
+
+        .edit-input:focus {
+            border-color: #94a3b8;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
+        }
+
+        .save-edit-btn {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 6px;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .save-edit-btn:hover {
+            background-color: #2563eb;
+        }
+
+        .save-edit-btn:active {
+            transform: translateY(1px);
+        }
+
         /* Responsive adjustments */
         @media (max-width: 768px) {
             .message {
@@ -306,15 +351,15 @@
             .header {
                 padding: 10px 15px;
             }
-            
+
             .chat-area {
                 padding: 15px;
             }
-            
+
             .message-form {
                 padding: 10px 15px;
             }
-            
+
             .message {
                 max-width: 90%;
             }
@@ -429,11 +474,21 @@
                         try {
                             missedHeartbeats = 0;
                             const message = JSON.parse(evt.data);
-                            console.log("Nhận tin nhắn:", message);                    // Xử lý thông báo cập nhật số người online
+                            console.log("Nhận tin nhắn:", message)
+                            // Xử lý thông báo cập nhật số người online
                             if (message.type === "online_update") {
                                 onlineUsers.count = message.online_count;
                                 onlineUsers.users = message.online_users || [];
                                 updateOnlineUsersDisplay();
+                                return;
+                            }
+
+                            if (message.type === 'edit-message') {
+                                const $msgDiv = $(`.message[data-id='${message.id}']`);
+                                if ($msgDiv.length) {
+                                    $msgDiv.find('.message-content').text(message.content);
+                                }
+                                
                                 return;
                             }
 
@@ -539,6 +594,7 @@
 
                 try {
                     conn.send(JSON.stringify({
+                        type: "message",
                         sender_id: userID,
                         group_id: groupID,
                         content: content,
@@ -559,38 +615,38 @@
             function displayMessage(message) {
                 const formatted = formattedDate(message.created_at);
                 const isSent = message.sender_id === userID;
-                
-                // Check if we need to add a date divider
+
                 addDateDividerIfNeeded(message.created_at);
-                
+
                 const $message = $("<div>")
-                    .addClass(`message ${isSent ? 'message-sent' : 'message-received'}`);
-                
+                    .addClass(`message ${isSent ? 'message-sent' : 'message-received'}`)
+                    .attr("data-id", message.id)
                 const $header = $("<div>")
                     .addClass("message-header")
                     .text(isSent ? 'Bạn' : message.sender_infor.user_name);
-                
+
                 const $content = $("<div>")
                     .addClass("message-content")
                     .text(message.content);
-                
+
                 const $timestamp = $("<div>")
                     .addClass("timestamp")
                     .text(formatted);
-                
+
                 $message.append($header).append($content).append($timestamp);
 
                 $("#chat-area").append($message)
                     .scrollTop($("#chat-area")[0].scrollHeight);
             }
 
+
             // Add date divider if needed
             function addDateDividerIfNeeded(dateStr) {
                 if (!dateStr) return;
-                
+
                 const messageDate = new Date(dateStr);
                 const dateString = messageDate.toLocaleDateString('vi-VN');
-                
+
                 // Check if we already have this date divider
                 const existingDivider = $(`.date-divider[data-date="${dateString}"]`);
                 if (existingDivider.length === 0) {
@@ -599,7 +655,7 @@
                     const today = new Date();
                     const yesterday = new Date(today);
                     yesterday.setDate(today.getDate() - 1);
-                    
+
                     if (messageDate.toDateString() === today.toDateString()) {
                         dateText = "Hôm nay";
                     } else if (messageDate.toDateString() === yesterday.toDateString()) {
@@ -607,12 +663,12 @@
                     } else {
                         dateText = dateString;
                     }
-                    
+
                     const $divider = $("<div>")
                         .addClass("date-divider")
                         .attr("data-date", dateString)
                         .text(dateText);
-                    
+
                     $("#chat-area").append($divider);
                 }
             }
@@ -643,7 +699,7 @@
                 $("#message-input").prop("disabled", !enable)
                     .attr("placeholder", enable ? "Nhập tin nhắn..." : "Mất kết nối...");
                 $("#send-button").prop("disabled", !enable);
-                
+
                 if (!enable) {
                     $(".message-input-container").css("opacity", "0.7");
                 } else {
@@ -759,6 +815,41 @@
                 }
             }
             // Quay lại
+
+            $(document).on('dblclick', '.message-sent', function () {
+                const $msgDiv = $(this);
+                const $contentDiv = $msgDiv.find('.message-content');
+                const oldText = $contentDiv.text();
+                const messageId = $msgDiv.attr('data-id');
+                // Thay content bằng input
+                const $input = $('<input type="text" class="edit-input">').val(oldText);
+                const $saveBtn = $('<button class="save-edit-btn">Lưu</button>');
+
+                $contentDiv.empty().append($input).append($saveBtn);
+            });
+
+            $(document).on('click', '.save-edit-btn', function () {
+                const $msgDiv = $(this).closest('.message');
+                const $input = $msgDiv.find('.edit-input');
+                const newText = $input.val().trim();
+                const messageId = $msgDiv.attr('data-id');
+                console.log("Message ID: ", messageId);
+                if (!newText) return;
+
+                // Gửi tin nhắn edit qua WebSocket
+                conn.send(JSON.stringify({
+                    type: 'edit-message',
+                    id: messageId,
+                    content: newText,
+                    sender_id: userID,
+                    group_id: groupID
+                }));
+
+                // Tạm thay nội dung để chờ server broadcast về
+                $msgDiv.find('.message-content').text(newText);
+            });
+
+
             window.goBack = function () {
                 cleanupWebSocket();
                 window.location.href = "/";

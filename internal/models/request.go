@@ -1,9 +1,17 @@
 package models
 
+import "time"
+
 type GroupRequest struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	CreatedBy   string `json:"created_by"`
+}
+
+type EditMessage struct {
+	ID       string `json:"id"`
+	Content  string `json:"content"`
+	UpdateAt time.Time `json:"update_at"`
 }
 
 type GroupUserRequest struct {

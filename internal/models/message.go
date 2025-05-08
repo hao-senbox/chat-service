@@ -19,11 +19,11 @@ type Message struct {
 }
 
 type MessageWithUser struct {
-    ID        string      `json:"id"`
-    SenderID  string      `json:"sender_id"`
-    Content   string      `json:"content"`
-    CreatedAt time.Time   `json:"created_at"`
-    SenderInfor *UserInfor `json:"sender_infor"`
+	ID          string     `json:"id"`
+	SenderID    string     `json:"sender_id"`
+	Content     string     `json:"content"`
+	CreatedAt   time.Time  `json:"created_at"`
+	SenderInfor *UserInfor `json:"sender_infor"`
 }
 
 type UserInfor struct {

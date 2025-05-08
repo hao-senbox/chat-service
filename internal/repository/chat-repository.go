@@ -3,13 +3,15 @@ package repository
 import (
 	"chat-service/internal/models"
 	"context"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type ChatRepository interface {
-	SaveMessage(ctx context.Context, message *models.Message) error
+	SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error)
+    EditMessage(ctx context.Context, message *models.EditMessage) error
     IsUserInGroup(ctx context.Context, userID string, groupID primitive.ObjectID) (bool, error)
     GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID) ([]*models.Message, error)
     DeleteMessageGroup(ctx context.Context, groupID primitive.ObjectID) error
@@ -39,12 +41,35 @@ func (r *chatRepository) IsUserInGroup(ctx context.Context, userID string, group
     return count > 0, err
 }
 
-func (r *chatRepository) SaveMessage(ctx context.Context, message *models.Message) error {
+func (r *chatRepository) SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error) {
 
-    _, err := r.collection.InsertOne(ctx, message)
+    res, err := r.collection.InsertOne(ctx, message)
+    if err != nil {
+        return primitive.NilObjectID, err
+    }
+    return res.InsertedID.(primitive.ObjectID), nil
 
-    return err
+}
 
+func (r *chatRepository) EditMessage(ctx context.Context, message *models.EditMessage) error {
+
+    objectID, err := primitive.ObjectIDFromHex(message.ID)
+    if err != nil {
+        return err
+    }
+
+    filter := bson.M{"_id": objectID}
+    update := bson.M{"$set": bson.M{
+        "content": message.Content,
+        "updated_at": message.UpdateAt,
+    }}
+
+    _, err = r.collection.UpdateOne(ctx, filter, update)
+    if err != nil {
+        return err
+    }
+
+    return nil
 }
 
 func (r *chatRepository) GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID) ([]*models.Message, error) {

@@ -69,6 +69,4 @@ func (h *ChatHandlers) DownloadGroupMessages(c *gin.Context) {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return
 	}
-
-	SendSuccess(c, http.StatusOK, "Download group messages successfully", nil)
 }

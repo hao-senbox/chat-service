@@ -68,6 +68,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string) ([]*
 		}
 
 		enrichedMessages = append(enrichedMessages, &models.MessageWithUser{
+			ID:          msg.ID.Hex(),
 			SenderID:    msg.SenderID,
 			Content:     msg.Content,
 			CreatedAt:   msg.CreatedAt,
