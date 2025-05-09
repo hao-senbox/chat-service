@@ -3,6 +3,7 @@ package repository
 import (
 	"chat-service/internal/models"
 	"context"
+	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -16,6 +17,7 @@ type ChatRepository interface {
 	GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID) ([]*models.Message, error)
 	DeleteMessageGroup(ctx context.Context, groupID primitive.ObjectID) error
     DeleteMessage(ctx context.Context, messageID primitive.ObjectID) error
+    CountKeywordMessage(ctx context.Context, keyword string, groupID primitive.ObjectID) (int, []string, error)
 }
 
 type chatRepository struct {
@@ -117,4 +119,34 @@ func (r *chatRepository) DeleteMessageGroup(ctx context.Context, groupID primiti
 	}
 
 	return nil
+}
+
+func (r *chatRepository) CountKeywordMessage(ctx context.Context, keyword string, groupID primitive.ObjectID) (int, []string, error) {
+
+    filter := bson.M{
+        "content": primitive.Regex{
+            Pattern: fmt.Sprintf(".*%s.*", keyword),
+            Options: "i",
+        },
+        "group_id": groupID,
+        "is_delete": false,
+    }
+
+    cursor, err := r.collection.Find(ctx, filter)
+    if err != nil {
+        return 0, nil, err
+    }
+    defer cursor.Close(ctx)
+
+    var messages []*models.Message
+    if err := cursor.All(ctx, &messages); err != nil {
+        return 0, nil, err
+    }
+
+    messagesID := make([]string, 0, len(messages))
+    for _, msg := range messages {
+        messagesID = append(messagesID, msg.ID.Hex())
+    }
+
+    return len(messages), messagesID, nil
 }

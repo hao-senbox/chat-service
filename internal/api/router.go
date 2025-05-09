@@ -33,6 +33,7 @@ func RegisterGroupRouters(r *gin.Engine, groupService service.GroupService) {
 		//Group 
 		groupGroup.GET("", handlers.GetAllGroups)
 		groupGroup.GET("/:group_id", handlers.GetGroupDetail)
+		groupGroup.GET("/count/keywod", handlers.CountKeywordAllGroups)
 		groupGroup.POST("", handlers.CreateGroup)
 		groupGroup.PUT("/:group_id", handlers.UpdateGroup)
 		groupGroup.DELETE("/:group_id", handlers.DeleteGroup)

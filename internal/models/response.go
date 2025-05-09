@@ -18,6 +18,12 @@ type GroupMemberWithUserInfor struct {
 	GroupMember *GroupMember `json:"group_member"`
 }
 
+type KeywordOfAllGroups struct {
+	Quantity int `json:"quantity"`
+	Groups Group `json:"groups"`
+	ArrIdMessage []string `json:"arr_id_message"`
+}
+
 const (
     ErrInvalidOperation   = "ERR_INVALID_OPERATION"
     ErrInvalidRequest     = "ERR_INVALID_REQUEST"

@@ -23,3 +23,7 @@ type GroupUserRequest struct {
 	CanSendImages      bool   `json:"can_send_images"`
 	CanUseCameraDevice bool   `json:"can_use_camera_device"`
 }
+
+type KeywordRequest struct {
+	Keyword string `json:"keyword"`
+}

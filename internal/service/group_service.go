@@ -20,6 +20,7 @@ type GroupService interface {
 	UpdateGroup(ctx context.Context,groupID string ,group *models.GroupRequest) error
 	DeleteGroup(ctx context.Context, groupID string) error
 	RemoveUserFromGroup(ctx context.Context, groupID string, group *models.GroupUserRequest) error
+	CountKeywordAllGroups(ctx context.Context, keyword string) (*[]models.KeywordOfAllGroups, error)
 }
 
 type groupService struct {
@@ -270,4 +271,30 @@ func (s *groupService) RemoveUserFromGroup(ctx context.Context, groupID string, 
 	}
 
 	return nil
+}
+
+func (s *groupService) CountKeywordAllGroups(ctx context.Context, keyword string) (*[]models.KeywordOfAllGroups, error) {
+
+	groups, err := s.GetAllGroups(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all groups: %w", err)
+	}
+
+	var result []models.KeywordOfAllGroups
+
+	for _, group := range groups {
+		count, arrayID, err := s.chatRepository.CountKeywordMessage(ctx, keyword, group.Group.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to count keyword all groups: %w", err)
+		}
+		data := models.KeywordOfAllGroups {
+			Quantity: count,
+			Groups: group.Group,
+			ArrIdMessage: arrayID,
+		}
+
+		result = append(result, data)
+	}
+
+	return &result, nil
 }

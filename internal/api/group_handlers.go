@@ -153,3 +153,20 @@ func (h *GroupHandlers) RemoveUserFromGroup(c *gin.Context) {
 
 	SendSuccess(c, http.StatusOK, "Remove user from group successfully", nil)
 }
+
+func (h* GroupHandlers) CountKeywordAllGroups(c *gin.Context) {
+
+	var req models.KeywordRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		SendError(c, http.StatusBadRequest, err, models.ErrInvalidRequest)
+	}
+	
+	count, err := h.groupService.CountKeywordAllGroups(c, req.Keyword)
+	if err != nil {
+		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
+		return
+	}
+
+	SendSuccess(c, http.StatusOK, "Count keyword all groups successfully", count)
+}
