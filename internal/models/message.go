@@ -12,7 +12,7 @@ type Message struct {
 	SenderID    string             `bson:"sender_id" json:"sender_id"`
 	Content     string             `bson:"content" json:"content"`
 	ContenType  string             `bson:"content_type" json:"content_type"`
-	Attachments []Attachment       `bson:"attachments" json:"attachments"`
+	Attachments *Attachment        `bson:"attachments" json:"attachments"`
 	IsEdit      bool               `bson:"is_edit" json:"is_edit"`
 	IsDelete    bool               `bson:"is_delete" json:"is_delete"`
 	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
@@ -20,13 +20,14 @@ type Message struct {
 }
 
 type MessageWithUser struct {
-	ID          string     `json:"id"`
-	SenderID    string     `json:"sender_id"`
-	Content     string     `json:"content"`
-	IsEdit      bool       `json:"is_edit"`
-	IsDelete    bool       `json:"is_delete"`
-	CreatedAt   time.Time  `json:"created_at"`
-	SenderInfor *UserInfor `json:"sender_infor"`
+	ID          string      `json:"id"`
+	SenderID    string      `json:"sender_id"`
+	Content     string      `json:"content"`
+	IsEdit      bool        `json:"is_edit"`
+	IsDelete    bool        `json:"is_delete"`
+	CreatedAt   time.Time   `json:"created_at"`
+	SenderInfor *UserInfor  `json:"sender_infor"`
+	Attachments *Attachment `json:"attachments"`
 }
 
 type UserInfor struct {
@@ -39,8 +40,6 @@ type UserInfor struct {
 }
 
 type Attachment struct {
-	URL        string    `bson:"url" json:"url"`
-	FileType   string    `bson:"file_type" json:"file_type"`
-	FileSize   int64     `bson:"file_size" json:"file_size"`
+	Key        string    `bson:"key" json:"key"`
 	UploadedAt time.Time `bson:"uploaded_at" json:"uploaded_at"`
 }

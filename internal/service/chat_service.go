@@ -83,6 +83,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string) ([]*
 			Content:     msg.Content,
 			IsEdit:      msg.IsEdit,
 			IsDelete:    msg.IsDelete,
+			Attachments: msg.Attachments,
 			CreatedAt:   msg.CreatedAt,
 			SenderInfor: userInfo,
 		})

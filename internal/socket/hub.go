@@ -23,6 +23,7 @@ type Message struct {
 	SenderID   string    `json:"sender_id"`
 	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
 	Content    string    `json:"content"`
+	ContenType string    `json:"content_type"`
 	Timestamp  string    `json:"created_at"`
 }
 
@@ -259,6 +260,7 @@ func (h *Hub) saveAndBroadcastMessage(msg Message, message []byte) {
 		GroupID:   groupID,
 		SenderID:  msg.SenderID,
 		Content:   msg.Content,
+		ContenType: msg.ContenType,
 		IsEdit:    false,
 		IsDelete:  false,
 		CreatedAt: time.Now(),
