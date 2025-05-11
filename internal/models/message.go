@@ -12,6 +12,7 @@ type Message struct {
 	SenderID    string             `bson:"sender_id" json:"sender_id"`
 	Content     string             `bson:"content" json:"content"`
 	ContenType  string             `bson:"content_type" json:"content_type"`
+	ImageKey    string             `bson:"image_key" json:"image_key,omitempty"`
 	Attachments *Attachment        `bson:"attachments" json:"attachments"`
 	IsEdit      bool               `bson:"is_edit" json:"is_edit"`
 	IsDelete    bool               `bson:"is_delete" json:"is_delete"`

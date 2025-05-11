@@ -15,16 +15,17 @@ import (
 )
 
 type Message struct {
-	ID         string    `json:"id"`
-	Type       string    `json:"type"`
-	IsEdit     bool      `json:"is_edit"`
-	IsDelete   bool      `json:"is_delete"`
-	GroupID    string    `json:"group_id"`
-	SenderID   string    `json:"sender_id"`
-	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
-	Content    string    `json:"content"`
-	ContenType string    `json:"content_type"`
-	Timestamp  string    `json:"created_at"`
+	ID          string    `json:"id"`
+	Type        string    `json:"type"`
+	IsEdit      bool      `json:"is_edit"`
+	IsDelete    bool      `json:"is_delete"`
+	GroupID     string    `json:"group_id"`
+	SenderID    string    `json:"sender_id"`
+	SenderInfo  *UserInfo `json:"sender_infor,omitempty"`
+	Content     string    `json:"content"`
+	ContenType  string    `json:"content_type"`
+	ImageKey    string    `json:"image_key,omitempty"`
+	Timestamp   string    `json:"created_at"`
 }
 
 type OnlineUsersUpdate struct {
@@ -189,7 +190,7 @@ func (h *Hub) Run() {
 			if clients, ok := h.rooms[client.groupID]; ok {
 				if _, found := clients[client]; found {
 					err := h.userOnlineRepo.SaveUserOnline(context.Background(), &models.UserOnline{
-						UserID: client.userID,
+						UserID:     client.userID,
 						LastOnline: time.Now(),
 					})
 					if err != nil {
@@ -257,13 +258,14 @@ func (h *Hub) saveAndBroadcastMessage(msg Message, message []byte) {
 	}
 
 	dbMsg := models.Message{
-		GroupID:   groupID,
-		SenderID:  msg.SenderID,
-		Content:   msg.Content,
-		ContenType: msg.ContenType,
-		IsEdit:    false,
-		IsDelete:  false,
-		CreatedAt: time.Now(),
+		GroupID:     groupID,
+		SenderID:    msg.SenderID,
+		Content:     msg.Content,
+		ContenType:  msg.ContenType,
+		ImageKey:    msg.ImageKey,
+		IsEdit:      false,
+		IsDelete:    false,
+		CreatedAt:   time.Now(),
 	}
 
 	go func() {
