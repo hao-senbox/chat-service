@@ -484,6 +484,52 @@
         .message-image:hover {
             opacity: 0.9;
         }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .user-info {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .message-sent {
+            align-self: flex-end;
+        }
+
+        .message-received {
+            align-self: flex-start;
+        }
+
+        .message-sent .message-header {
+            flex-direction: row-reverse;
+        }
+
+        .message-sent .user-avatar {
+            margin-right: 0;
+            margin-left: 8px;
+        }
+
+        .image-container {
+            position: relative;
+            min-height: 100px;
+        }
+
+        .image-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
     </style>
 </head>
 
@@ -805,8 +851,33 @@
                     .attr("data-id", message.id);
                 
                 const $header = $("<div>")
-                    .addClass("message-header")
-                    .text(isSent ? 'Bạn' : message.sender_infor.user_name);
+                    .addClass("message-header");
+
+                // Thêm avatar người dùng
+                const $avatar = $("<div>")
+                    .addClass("user-avatar")
+                    .css({
+                        "width": "32px",
+                        "height": "32px",
+                        "border-radius": "50%",
+                        "margin-right": "8px",
+                        "background-size": "cover",
+                        "background-position": "center"
+                    });
+
+                // Nếu có thông tin người gửi, lấy avatar từ sender_infor
+                if (message.sender_infor && message.sender_infor.avatar) {
+                    $avatar.css("background-image", `url(${message.sender_infor.avatar})`);
+                } else {
+                    // Nếu không có avatar, hiển thị avatar mặc định
+                    $avatar.css("background-image", "url('/static/images/default-avatar.png')");
+                }
+
+                const $userInfo = $("<div>")
+                    .addClass("user-info")
+                    .text(isSent ? 'Bạn' : (message.sender_infor ? message.sender_infor.user_name : 'Unknown'));
+
+                $header.append($avatar).append($userInfo);
 
                 const $content = $("<div>")
                     .addClass("message-content");
@@ -816,11 +887,70 @@
                     $message.css("opacity", "0.5");
                 } else {
                     if (message.content_type === "image" && message.image_key) {
+                        // Tạo container cho ảnh
+                        const $imageContainer = $("<div>")
+                            .addClass("image-container")
+                            .css({
+                                "position": "relative",
+                                "max-width": "300px",
+                                "margin-top": "5px"
+                            });
+
+                        // Thêm loading indicator
+                        const $loading = $("<div>")
+                            .addClass("image-loading")
+                            .html('<i class="fas fa-spinner fa-spin"></i>')
+                            .css({
+                                "position": "absolute",
+                                "top": "50%",
+                                "left": "50%",
+                                "transform": "translate(-50%, -50%)",
+                                "color": "#666"
+                            });
+
+                        // Tạo ảnh
                         const $image = $("<img>")
                             .addClass("message-image")
-                            .attr("src", `/api/v1/images/${message.image_key}`)
-                            .attr("alt", "Image message");
-                        $content.append($image);
+                            .attr("alt", "Image message")
+                            .css({
+                                "max-width": "100%",
+                                "border-radius": "8px",
+                                "opacity": "0"
+                            });
+
+                        // Thêm sự kiện load ảnh
+                        $image.on("load", function() {
+                            $(this).css("opacity", "1");
+                            $loading.remove();
+                        });
+
+                        // Thêm sự kiện lỗi ảnh
+                        $image.on("error", function() {
+                            $(this).attr("src", "/static/images/image-error.png");
+                            $loading.remove();
+                        });
+
+                        // Lấy URL ảnh từ API
+                        $.ajax({
+                            url: `/api/v1/images/`, // không thêm image_key vào URL
+                            method: "POST",
+                            contentType: "application/json",
+                            data: JSON.stringify({ key: message.image_key }), // gửi trong body
+                            success: function(response) {
+                                if (response.status_code === 200) {
+                                    $image.attr("src", response.data);
+                                } else {
+                                    $image.attr("src", "/static/images/image-error.png");
+                                }
+                            },
+                            error: function() {
+                                $image.attr("src", "/static/images/image-error.png");
+                            }
+                        });
+
+
+                        $imageContainer.append($loading).append($image);
+                        $content.append($imageContainer);
                     } else {
                         $content.text(message.content);
                     }
@@ -878,8 +1008,6 @@
                     }
                 });
             }
-
-
 
             // Add date divider if needed
             function addDateDividerIfNeeded(dateStr) {
