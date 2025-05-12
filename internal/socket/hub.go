@@ -35,6 +35,7 @@ type OnlineUsersUpdate struct {
 }
 
 type UserInfo struct {
+	
 	UserID    string    `json:"user_id"`
 	Username  string    `json:"user_name"`
 	AvatarURL string    `json:"avatar_url"`
@@ -189,7 +190,7 @@ func (h *Hub) Run() {
 			if clients, ok := h.rooms[client.groupID]; ok {
 				if _, found := clients[client]; found {
 					err := h.userOnlineRepo.SaveUserOnline(context.Background(), &models.UserOnline{
-						UserID: client.userID,
+						UserID:     client.userID,
 						LastOnline: time.Now(),
 					})
 					if err != nil {
@@ -257,13 +258,13 @@ func (h *Hub) saveAndBroadcastMessage(msg Message, message []byte) {
 	}
 
 	dbMsg := models.Message{
-		GroupID:   groupID,
-		SenderID:  msg.SenderID,
-		Content:   msg.Content,
+		GroupID:    groupID,
+		SenderID:   msg.SenderID,
+		Content:    msg.Content,
 		ContenType: msg.ContenType,
-		IsEdit:    false,
-		IsDelete:  false,
-		CreatedAt: time.Now(),
+		IsEdit:     false,
+		IsDelete:   false,
+		CreatedAt:  time.Now(),
 	}
 
 	go func() {
