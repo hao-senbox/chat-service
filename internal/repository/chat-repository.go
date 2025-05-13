@@ -15,9 +15,9 @@ type ChatRepository interface {
 	EditMessage(ctx context.Context, message *models.EditMessage) error
 	IsUserInGroup(ctx context.Context, userID string, groupID primitive.ObjectID) (bool, error)
 	GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID) ([]*models.Message, error)
-	DeleteMessageGroup(ctx context.Context, groupID primitive.ObjectID) error
     DeleteMessage(ctx context.Context, messageID primitive.ObjectID) error
     CountKeywordMessage(ctx context.Context, keyword string, groupID primitive.ObjectID) (int, []string, error)
+    MessageDetail(ctx context.Context, messageID primitive.ObjectID) (*models.Message, error)
 }
 
 type chatRepository struct {
@@ -109,17 +109,6 @@ func (r *chatRepository) GetMessagesByGroupID(ctx context.Context, groupID primi
 	return messages, nil
 }
 
-func (r *chatRepository) DeleteMessageGroup(ctx context.Context, groupID primitive.ObjectID) error {
-
-	filter := bson.M{"group_id": groupID}
-
-	_, err := r.collection.DeleteMany(ctx, filter)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
 
 func (r *chatRepository) CountKeywordMessage(ctx context.Context, keyword string, groupID primitive.ObjectID) (int, []string, error) {
 
@@ -149,4 +138,17 @@ func (r *chatRepository) CountKeywordMessage(ctx context.Context, keyword string
     }
 
     return len(messages), messagesID, nil
+}
+
+func (r *chatRepository) MessageDetail(ctx context.Context, messageID primitive.ObjectID) (*models.Message, error) {
+
+    filter := bson.M{"_id": messageID}
+
+    var message models.Message
+    err := r.collection.FindOne(ctx, filter).Decode(&message)
+    if err != nil {
+        return nil, err
+    }
+
+    return &message, nil
 }

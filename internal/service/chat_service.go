@@ -5,10 +5,12 @@ import (
 	"chat-service/internal/models"
 	"chat-service/internal/repository"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/hashicorp/consul/api"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -17,20 +19,31 @@ type ChatService interface {
 	IsUserInGroup(ctx context.Context, userID string, groupID string) (bool, error)
 	DownloadGroupMessages(ctx *gin.Context, groupID string) error
 	GetUserInformation(ctx context.Context, userID string) (*models.UserInfor, error)
+	DeleteMessage(ctx context.Context, messageID primitive.ObjectID, token string) error
+	SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error)
+	EditMessage(ctx context.Context, message *models.EditMessage) error
+	DeleteMessageByGroupID(ctx context.Context, groupID string, token string) error
 }
 type chatService struct {
 	chatRepository repository.ChatRepository
 	groupService   GroupService
 	userService    UserService
+	client         *callAPI
 }
 
 
-func NewChatService(chatRepository repository.ChatRepository, groupService GroupService, userService UserService) ChatService {
+func NewChatService(client *api.Client, chatRepository repository.ChatRepository, groupService GroupService, userService UserService) ChatService {
+	mainServiceAPI := NewServiceAPI(client, mainService)
 	return &chatService{
+		client:         mainServiceAPI,
 		chatRepository: chatRepository,
 		groupService:   groupService,
 		userService:    userService,
 	}
+}
+
+func (s *chatService) EditMessage(ctx context.Context, message *models.EditMessage) error {
+	return s.chatRepository.EditMessage(ctx, message)
 }
 
 func (s *chatService) GetUserInformation(ctx context.Context, userID string) (*models.UserInfor, error) {
@@ -40,6 +53,10 @@ func (s *chatService) GetUserInformation(ctx context.Context, userID string) (*m
 		return nil, err
 	}
 	return user, nil
+}
+
+func (s *chatService) SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error) {
+	return s.chatRepository.SaveMessage(ctx, message)
 }
 
 func (s *chatService) GetGroupMessages(ctx context.Context, groupID string) ([]*models.MessageWithUser, error) {
@@ -83,7 +100,8 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string) ([]*
 			Content:     msg.Content,
 			IsEdit:      msg.IsEdit,
 			IsDelete:    msg.IsDelete,
-			Attachments: msg.Attachments,
+			ContenType:  msg.ContenType,
+			ImageKey:    msg.ImageKey,
 			CreatedAt:   msg.CreatedAt,
 			SenderInfor: userInfo,
 		})
@@ -129,4 +147,75 @@ func (s *chatService) DownloadGroupMessages(ctx *gin.Context, groupID string) er
 	ctx.String(http.StatusOK, buffer.String())
 
 	return nil 
+}
+
+func (s *chatService) DeleteMessageByGroupID(ctx context.Context, groupID string, token string) error {
+
+	objectID, err := primitive.ObjectIDFromHex(groupID)
+	if err != nil {
+		return err
+	}
+
+	messages, err := s.chatRepository.GetMessagesByGroupID(ctx, objectID)
+	if err != nil {
+		return err
+	}
+
+	for _, message := range messages {
+		err := s.DeleteMessage(ctx, message.ID, token)
+		if err != nil {
+			return err
+		}
+	}
+	
+	return nil
+}
+func (s *chatService) DeleteMessage(ctx context.Context, messageID primitive.ObjectID, token string) error {
+	err := s.chatRepository.DeleteMessage(ctx, messageID)
+	if err != nil {
+		return err
+	}
+
+	message, err := s.chatRepository.MessageDetail(ctx, messageID)
+	if err != nil {
+		return err
+	}
+
+	if message.ImageKey != "" {
+		err = s.client.DeleteImage(message.ImageKey, token)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *callAPI) DeleteImage(key string, token string) error {
+	requestBody := map[string]string{
+		"key": key,
+	}
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return fmt.Errorf("error marshaling JSON: %v", err)
+	}
+
+	headers := map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer " + token,
+	}	
+
+	endpoint := "/v1/images/delete"
+	res, err := c.client.CallAPI(c.clientServer, endpoint, http.MethodPost, jsonData, headers)
+	if err != nil {
+		return fmt.Errorf("error calling API: %v", err)
+	}
+
+	var responseData interface{}
+	
+	err = json.Unmarshal([]byte(res), &responseData)
+	if err != nil {
+		return fmt.Errorf("error unmarshaling response: %v", err)
+	}
+
+	return nil
 }

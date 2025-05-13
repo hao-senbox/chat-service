@@ -65,12 +65,13 @@ func main() {
 	messagesRepository := repository.NewChatRepository(messagesCollection, groupMemberCollection)
 	groupRepository := repository.NewGroupRepository(groupCollection, groupMemberCollection, nil)
 	groupMemberRepository := repository.NewGroupMemberRepository(groupMemberCollection, groupRepository)
-	groupService := service.NewGroupService(groupRepository, groupMemberRepository, messagesRepository, userService)
-	messageService := service.NewChatService(messagesRepository, groupService, userService)
-
+	groupService := service.NewGroupService(groupRepository, groupMemberRepository, messagesRepository, userService, nil)
+	messageService := service.NewChatService(consulClient ,messagesRepository, groupService, userService)
+	
+	groupService.SetMessageService(messageService)
 	groupRepository.SetGroupMemberRepo(groupMemberRepository)
 
-	hub := socket.NewHub(messagesRepository, userService, userOnlineRepository)
+	hub := socket.NewHub(messageService, userService, userOnlineRepository)
 	go hub.Run()
 	// Set up router with Gin
 	router := gin.Default()

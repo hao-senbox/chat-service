@@ -15,17 +15,18 @@ import (
 )
 
 type Message struct {
-	ID          string    `json:"id"`
-	Type        string    `json:"type"`
-	IsEdit      bool      `json:"is_edit"`
-	IsDelete    bool      `json:"is_delete"`
-	GroupID     string    `json:"group_id"`
-	SenderID    string    `json:"sender_id"`
-	SenderInfo  *UserInfo `json:"sender_infor,omitempty"`
-	Content     string    `json:"content"`
-	ContenType  string    `json:"content_type"`
-	ImageKey    string    `json:"image_key,omitempty"`
-	Timestamp   string    `json:"created_at"`
+	ID         string    `json:"id"`
+	Type       string    `json:"type"`
+	Token      string    `json:"token"`
+	IsEdit     bool      `json:"is_edit"`
+	IsDelete   bool      `json:"is_delete"`
+	GroupID    string    `json:"group_id"`
+	SenderID   string    `json:"sender_id"`
+	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
+	Content    string    `json:"content"`
+	ContenType string    `json:"content_type"`
+	ImageKey   string    `json:"image_key,omitempty"`
+	Timestamp  string    `json:"created_at"`
 }
 
 type OnlineUsersUpdate struct {
@@ -50,7 +51,7 @@ type Hub struct {
 	broadcast        chan []byte
 	register         chan *Client
 	unregister       chan *Client
-	messageRepo      repository.ChatRepository
+	messageService   service.ChatService
 	userOnlineRepo   repository.UserOnlineRepository
 
 	userCache      map[string]*UserInfo
@@ -59,7 +60,7 @@ type Hub struct {
 	userService    service.UserService
 }
 
-func NewHub(messageRepo repository.ChatRepository, userService service.UserService, userOnlineRepo repository.UserOnlineRepository) *Hub {
+func NewHub(messageService service.ChatService, userService service.UserService, userOnlineRepo repository.UserOnlineRepository) *Hub {
 	return &Hub{
 		broadcast:        make(chan []byte, 256),
 		register:         make(chan *Client, 10),
@@ -68,7 +69,7 @@ func NewHub(messageRepo repository.ChatRepository, userService service.UserServi
 		roomsMutex:       sync.RWMutex{},
 		onlineUsers:      make(map[string]map[string]bool),
 		onlineUsersMutex: sync.RWMutex{},
-		messageRepo:      messageRepo,
+		messageService:   messageService,
 		userOnlineRepo:   userOnlineRepo,
 
 		userCache:      make(map[string]*UserInfo),
@@ -258,18 +259,18 @@ func (h *Hub) saveAndBroadcastMessage(msg Message, message []byte) {
 	}
 
 	dbMsg := models.Message{
-		GroupID:     groupID,
-		SenderID:    msg.SenderID,
-		Content:     msg.Content,
-		ContenType:  msg.ContenType,
-		ImageKey:    msg.ImageKey,
-		IsEdit:      false,
-		IsDelete:    false,
-		CreatedAt:   time.Now(),
+		GroupID:    groupID,
+		SenderID:   msg.SenderID,
+		Content:    msg.Content,
+		ContenType: msg.ContenType,
+		ImageKey:   msg.ImageKey,
+		IsEdit:     false,
+		IsDelete:   false,
+		CreatedAt:  time.Now(),
 	}
 
 	go func() {
-		id, err := h.messageRepo.SaveMessage(context.Background(), &dbMsg)
+		id, err := h.messageService.SaveMessage(context.Background(), &dbMsg)
 		if err != nil {
 			log.Printf("Error saving message: %v", err)
 			return
@@ -288,7 +289,7 @@ func (h *Hub) editAndBroadcastMessage(msg Message, message []byte) {
 	}
 
 	go func() {
-		if err := h.messageRepo.EditMessage(context.Background(), &dbMsg); err != nil {
+		if err := h.messageService.EditMessage(context.Background(), &dbMsg); err != nil {
 			log.Printf("Error editing message: %v", err)
 		}
 		h.sendToGroup(msg.GroupID, message)
@@ -302,7 +303,7 @@ func (h *Hub) deleteAndBroadcastMessage(msg Message, message []byte) {
 		return
 	}
 	go func() {
-		if err := h.messageRepo.DeleteMessage(context.Background(), id); err != nil {
+		if err := h.messageService.DeleteMessage(context.Background(), id, msg.Token); err != nil {
 			log.Printf("Error deleting message: %v", err)
 		}
 		h.sendToGroup(msg.GroupID, message)

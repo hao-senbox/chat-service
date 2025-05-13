@@ -4,9 +4,11 @@ import (
 	"chat-service/internal/models"
 	"chat-service/internal/repository"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"log"
 	"time"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -18,25 +20,34 @@ type GroupService interface {
 	GetAllGroups(ctx context.Context) ([]models.GroupWithMembers, error)
 	GetGroupDetail(ctx context.Context, groupID string) (*models.GroupWithMembers, error)
 	UpdateGroup(ctx context.Context,groupID string ,group *models.GroupRequest) error
-	DeleteGroup(ctx context.Context, groupID string) error
+	DeleteGroup(ctx context.Context, groupID string, req *models.TokenUserRequest) error
 	RemoveUserFromGroup(ctx context.Context, groupID string, group *models.GroupUserRequest) error
 	CountKeywordAllGroups(ctx context.Context, keyword string) (*[]models.KeywordOfAllGroups, error)
+	GenerateGroupQrCode(ctx context.Context, group *models.GroupQrRequest) (string, error)
+	JoinGroupByQrCode(ctx context.Context, group *models.JoinGroupByQrCodeRequest) error
+	SetMessageService(chatService ChatService)
 }
 
 type groupService struct {
 	groupRepository     repository.GroupRepository
 	groupUserRepository repository.GroupMemberRepository
 	chatRepository      repository.ChatRepository
+	chatService         ChatService
 	userService         UserService
 }
 
-func NewGroupService(groupRepository repository.GroupRepository, groupUserRepository repository.GroupMemberRepository, chatRepository repository.ChatRepository, userService UserService) GroupService {
+func NewGroupService(groupRepository repository.GroupRepository, groupUserRepository repository.GroupMemberRepository, chatRepository repository.ChatRepository, userService UserService, chachatService ChatService) GroupService {
 	return &groupService{
 		groupRepository:     groupRepository,
 		groupUserRepository: groupUserRepository,
 		chatRepository:      chatRepository,
 		userService:         userService,
+		chatService:         chachatService,
 	}
+}
+
+func (s *groupService) SetMessageService(chatService ChatService) {
+	s.chatService = chatService
 }
 func (s *groupService) GetAllGroups(ctx context.Context) ([]models.GroupWithMembers, error) {
 
@@ -144,6 +155,7 @@ func (s *groupService) CreateGroup(ctx context.Context, group *models.GroupReque
 	groupInfor := models.Group{
 		Name:        group.Name,
 		Description: group.Description,
+		GroupQr:     []models.GroupQrCode{},
 		CreatedBy:   group.CreatedBy,
 		CreatedAt:   time.Now(),
 		UpdateAt:    time.Now(),
@@ -229,8 +241,9 @@ func (s *groupService) UpdateGroup(ctx context.Context, groupID string, group *m
 	return nil
 }
 
-func (s *groupService) DeleteGroup(ctx context.Context, groupID string) error {
+func (s *groupService) DeleteGroup(ctx context.Context, groupID string, req *models.TokenUserRequest) error {
 
+	token := req.Token
 	objectID, err := primitive.ObjectIDFromHex(groupID)
 	if err != nil {
 		return err
@@ -246,7 +259,7 @@ func (s *groupService) DeleteGroup(ctx context.Context, groupID string) error {
 		return fmt.Errorf("failed to delete group: %w", err)
 	}
 
-	err = s.chatRepository.DeleteMessageGroup(ctx, objectID)
+	err = s.chatService.DeleteMessageByGroupID(ctx, groupID, token)
 	if err != nil {
 		return fmt.Errorf("failed to delete group members: %w", err)
 	}
@@ -297,4 +310,122 @@ func (s *groupService) CountKeywordAllGroups(ctx context.Context, keyword string
 	}
 
 	return &result, nil
+}
+
+func (s *groupService) GenerateGroupQrCode(ctx context.Context, group *models.GroupQrRequest) (string, error) {
+
+	if group.GroupID == "" {
+		return "", fmt.Errorf("group id cannot be empty")
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(group.GroupID)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = s.groupRepository.GetGroupDetail(ctx, objectID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get group detail: %w", err)
+	}
+
+	qrCode := models.QrCodeData{
+		GroupID: objectID,
+		Permission: models.Permission{
+			CanRead:            group.CanRead,
+			CanWrite:           group.CanWrite,
+			CanEdit:            group.CanEdit,
+			CanSendImages:      group.CanSendImages,
+			CanUseCameraDevice: group.CanUseCameraDevice,
+		},
+		ExpiryTime: time.Now().Add(1 * time.Hour),
+	}
+
+	qrCodeJson, err := json.Marshal(qrCode)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal qr code: %w", err)
+	}
+
+	qrCodeString := base64.StdEncoding.EncodeToString(qrCodeJson)
+
+	// qr, err := qrcode.Encode(qrCodeString, qrcode.Medium, 256)
+	// if err != nil {
+	// 	return "", fmt.Errorf("failed to encode qr code: %w", err)
+	// }
+
+	// qrBase64 := base64.StdEncoding.EncodeToString(qr)
+
+	groupQr := models.GroupQrCode{
+		QRCode: qrCodeString,
+		Permission: models.Permission{
+			CanRead:            group.CanRead,
+			CanWrite:           group.CanWrite,
+			CanEdit:            group.CanEdit,
+			CanSendImages:      group.CanSendImages,
+			CanUseCameraDevice: group.CanUseCameraDevice,
+		},
+		ExpiryTime: time.Now().Add(1 * time.Hour),
+		CreatedAt: time.Now(),
+	}
+
+	err = s.groupRepository.CreateGroupQrCode(ctx, objectID, &groupQr)
+	if err != nil {
+		return "", fmt.Errorf("failed to create group qr code: %w", err)
+	}
+
+	return qrCodeString, nil
+
+}
+
+func (h *groupService) JoinGroupByQrCode(ctx context.Context, group *models.JoinGroupByQrCodeRequest) error {
+	
+	if group.QrCodeData == "" {
+		return fmt.Errorf("qr code data cannot be empty")
+	}
+
+	if group.UserID == "" {
+		return fmt.Errorf("user id cannot be empty")
+	}
+
+	qrCodeData, err := base64.StdEncoding.DecodeString(group.QrCodeData)
+	if err != nil {
+		return fmt.Errorf("failed to decode qr code data: %w", err)
+	}
+
+	var qrCode models.QrCodeData
+	err = json.Unmarshal(qrCodeData, &qrCode)
+	if err != nil {
+		// Log chuỗi gây lỗi để debug
+		log.Printf("Failed to unmarshal QR data: %v. Data received: %s", err, string(qrCodeData))
+		return fmt.Errorf("failed to unmarshal qr code data: %w", err)
+	}
+
+	if qrCode.ExpiryTime.Before(time.Now()) {
+		return fmt.Errorf("qr code has expired")
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(qrCode.GroupID.Hex())
+	if err != nil {
+		return err
+	}
+
+	_, err = h.groupRepository.GetGroupDetail(ctx, objectID)
+	if err != nil {
+		return fmt.Errorf("failed to get group detail: %w", err)
+	}
+
+	groupUserInfor := models.GroupMember {
+		GroupID: objectID,
+		UserID: group.UserID,
+		Permission: qrCode.Permission,
+		CreatedAt: time.Now(),
+		UpdateAt: time.Now(),
+	}
+
+	err = h.groupUserRepository.AddUserToGroup(ctx, &groupUserInfor)
+
+	if err != nil {
+		return fmt.Errorf("failed to create group member: %w", err)
+	}
+
+	return nil
 }
