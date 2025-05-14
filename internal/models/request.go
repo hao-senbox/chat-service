@@ -45,3 +45,4 @@ type KeywordRequest struct {
 type TokenUserRequest struct {
 	Token string `json:"token"`
 }
+

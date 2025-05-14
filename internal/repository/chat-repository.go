@@ -4,6 +4,7 @@ import (
 	"chat-service/internal/models"
 	"context"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -14,7 +15,7 @@ type ChatRepository interface {
 	SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error)
 	EditMessage(ctx context.Context, message *models.EditMessage) error
 	IsUserInGroup(ctx context.Context, userID string, groupID primitive.ObjectID) (bool, error)
-	GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID) ([]*models.Message, error)
+	GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID, from *time.Time, to *time.Time) ([]*models.Message, error)
     DeleteMessage(ctx context.Context, messageID primitive.ObjectID) error
     CountKeywordMessage(ctx context.Context, keyword string, groupID primitive.ObjectID) (int, []string, error)
     MessageDetail(ctx context.Context, messageID primitive.ObjectID) (*models.Message, error)
@@ -91,9 +92,26 @@ func (r *chatRepository) EditMessage(ctx context.Context, message *models.EditMe
 	return nil
 }
 
-func (r *chatRepository) GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID) ([]*models.Message, error) {
+func (r *chatRepository) GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID, from *time.Time, to *time.Time) ([]*models.Message, error) {
 
-	filter := bson.M{"group_id": groupID}
+	filter := bson.M{
+		"group_id": groupID,
+	}
+
+	if from != nil || to != nil {
+		timeFilter := bson.M{}
+		if from != nil {
+			timeFilter["$gte"] = *from
+		}
+		if to != nil {
+			timeFilter["$lte"] = *to
+		}
+		filter["created_at"] = timeFilter
+	}
+
+	fmt.Printf("filter: %+v\n", filter)
+
+	fmt.Printf("from %v to %v\n", from, to)
 
 	cur, err := r.collection.Find(ctx, filter)
 	if err != nil {

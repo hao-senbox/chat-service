@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/hashicorp/consul/api"
@@ -15,9 +16,9 @@ import (
 )
 
 type ChatService interface {
-	GetGroupMessages(ctx context.Context, groupID string) ([]*models.MessageWithUser, error)
+	GetGroupMessages(ctx context.Context, groupID string, from *time.Time, to *time.Time) ([]*models.MessageWithUser, error)
 	IsUserInGroup(ctx context.Context, userID string, groupID string) (bool, error)
-	DownloadGroupMessages(ctx *gin.Context, groupID string) error
+	DownloadGroupMessages(ctx *gin.Context, groupID string, from *time.Time, to *time.Time) error
 	GetUserInformation(ctx context.Context, userID string) (*models.UserInfor, error)
 	DeleteMessage(ctx context.Context, messageID primitive.ObjectID, token string) error
 	SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error)
@@ -59,14 +60,14 @@ func (s *chatService) SaveMessage(ctx context.Context, message *models.Message) 
 	return s.chatRepository.SaveMessage(ctx, message)
 }
 
-func (s *chatService) GetGroupMessages(ctx context.Context, groupID string) ([]*models.MessageWithUser, error) {
+func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from *time.Time, to *time.Time) ([]*models.MessageWithUser, error) {
 
 	objectID, err := primitive.ObjectIDFromHex(groupID)
 	if err != nil {
 		return nil, err
 	}
 
-	messages, err := s.chatRepository.GetMessagesByGroupID(ctx, objectID)
+	messages, err := s.chatRepository.GetMessagesByGroupID(ctx, objectID, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -122,14 +123,14 @@ func(s *chatService) IsUserInGroup(ctx context.Context, userID string, groupID s
 	
 }
 
-func (s *chatService) DownloadGroupMessages(ctx *gin.Context, groupID string) error {
+func (s *chatService) DownloadGroupMessages(ctx *gin.Context, groupID string, from *time.Time, to *time.Time) error {
 
 	_, err := s.groupService.GetGroupDetail(ctx, groupID)
 	if err != nil {
 		return err
 	}
 
-	messages, err := s.GetGroupMessages(ctx, groupID)
+	messages, err := s.GetGroupMessages(ctx, groupID, from, to)
 	if err != nil {
 		return err
 	}
@@ -137,7 +138,11 @@ func (s *chatService) DownloadGroupMessages(ctx *gin.Context, groupID string) er
 	var buffer bytes.Buffer
 	for _, msg := range messages {
 		timeStr := msg.CreatedAt.Format("2006-01-02 15:04:05")
-		line := fmt.Sprintf("[%s] %s: %s\n", timeStr, msg.SenderInfor.UserName, msg.Content)
+		content := msg.Content
+		if msg.Content == "" {
+			content = "Image"
+		}
+		line := fmt.Sprintf("[%s] %s: %s\n", timeStr, msg.SenderInfor.UserName, content)
 		buffer.WriteString(line)
 	}
 
@@ -156,7 +161,7 @@ func (s *chatService) DeleteMessageByGroupID(ctx context.Context, groupID string
 		return err
 	}
 
-	messages, err := s.chatRepository.GetMessagesByGroupID(ctx, objectID)
+	messages, err := s.chatRepository.GetMessagesByGroupID(ctx, objectID, nil, nil)
 	if err != nil {
 		return err
 	}
