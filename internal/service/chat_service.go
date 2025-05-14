@@ -205,16 +205,9 @@ func (c *callAPI) DeleteImage(key string, token string) error {
 	}	
 
 	endpoint := "/v1/images/delete"
-	res, err := c.client.CallAPI(c.clientServer, endpoint, http.MethodPost, jsonData, headers)
+	_, err = c.client.CallAPI(c.clientServer, endpoint, http.MethodPost, jsonData, headers)
 	if err != nil {
 		return fmt.Errorf("error calling API: %v", err)
-	}
-
-	var responseData interface{}
-	
-	err = json.Unmarshal([]byte(res), &responseData)
-	if err != nil {
-		return fmt.Errorf("error unmarshaling response: %v", err)
 	}
 
 	return nil

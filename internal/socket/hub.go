@@ -29,6 +29,40 @@ type Message struct {
 	Timestamp  string    `json:"created_at"`
 }
 
+type MessageChat struct {
+	ID         string    `json:"id"`
+	Type       string    `json:"type"`
+	GroupID    string    `json:"group_id"`
+	SenderID   string    `json:"sender_id"`
+	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
+	Content    string    `json:"content"`
+	ContenType string    `json:"content_type"`
+	ImageKey   string    `json:"image_key,omitempty"`
+	Timestamp  string    `json:"created_at"`
+}
+
+type EditMessage struct {
+	ID         string    `json:"id"`
+	Type       string    `json:"type"`
+	IsEdit     bool      `json:"is_edit"`
+	GroupID    string    `json:"group_id"`
+	SenderID   string    `json:"sender_id"`
+	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
+	Content    string    `json:"content"`
+	Timestamp  string    `json:"created_at"`
+}
+
+type DeleteMessage struct {
+	ID         string    `json:"id"`
+	Type       string    `json:"type"`
+	IsDelete   bool      `json:"is_delete"`
+	GroupID    string    `json:"group_id"`
+	SenderID   string    `json:"sender_id"`
+	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
+	Content    string    `json:"content"`
+	Timestamp  string    `json:"created_at"`
+}
+
 type OnlineUsersUpdate struct {
 	Type        string              `json:"type"`
 	GroupID     string              `json:"group_id"`
@@ -235,23 +269,21 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 	userInfo, err := h.getUserInfo(msg.SenderID)
 	if err == nil {
 		msg.SenderInfo = userInfo
-	}
-	updatedMessage, err := json.Marshal(msg)
-	if err == nil {
-		message = updatedMessage
+	} else {
+		log.Printf("Failed to get user info for %s: %v\n", msg.SenderID, err)
 	}
 
 	switch msg.Type {
 	case "message":
-		h.saveAndBroadcastMessage(msg, message)
+		h.saveAndBroadcastMessage(msg)
 	case "edit-message":
-		h.editAndBroadcastMessage(msg, message)
+		h.editAndBroadcastMessage(msg)
 	case "delete-message":
-		h.deleteAndBroadcastMessage(msg, message)
+		h.deleteAndBroadcastMessage(msg)
 	}
 }
 
-func (h *Hub) saveAndBroadcastMessage(msg Message, message []byte) {
+func (h *Hub) saveAndBroadcastMessage(msg Message) {
 	groupID, err := primitive.ObjectIDFromHex(msg.GroupID)
 	if err != nil {
 		log.Printf("Invalid group ID: %v", err)
@@ -269,44 +301,80 @@ func (h *Hub) saveAndBroadcastMessage(msg Message, message []byte) {
 		CreatedAt:  time.Now(),
 	}
 
+	messageChat := MessageChat{
+		Type:       msg.Type,
+		GroupID:    msg.GroupID,
+		SenderID:   msg.SenderID,
+		SenderInfo: msg.SenderInfo,
+		Content:    msg.Content,
+		ContenType: msg.ContenType,
+		ImageKey:   msg.ImageKey,
+		Timestamp:  msg.Timestamp,
+	}
+
 	go func() {
 		id, err := h.messageService.SaveMessage(context.Background(), &dbMsg)
 		if err != nil {
 			log.Printf("Error saving message: %v", err)
 			return
 		}
-		msg.ID = id.Hex()
-		updatedMessage, _ := json.Marshal(msg)
+		messageChat.ID = id.Hex()
+		updatedMessage, _ := json.Marshal(messageChat)
 		h.sendToGroup(msg.GroupID, updatedMessage)
 	}()
 }
 
-func (h *Hub) editAndBroadcastMessage(msg Message, message []byte) {
+func (h *Hub) editAndBroadcastMessage(msg Message) {
+
 	dbMsg := models.EditMessage{
 		ID:       msg.ID,
 		Content:  msg.Content,
 		UpdateAt: time.Now(),
 	}
 
+	editMessage := EditMessage{
+		ID:         msg.ID,
+		Type:       msg.Type,
+		IsEdit:     true,
+		GroupID:    msg.GroupID,
+		SenderID:   msg.SenderID,
+		SenderInfo: msg.SenderInfo,
+		Content:    msg.Content,
+		Timestamp:  msg.Timestamp,
+	}
+
 	go func() {
 		if err := h.messageService.EditMessage(context.Background(), &dbMsg); err != nil {
 			log.Printf("Error editing message: %v", err)
 		}
-		h.sendToGroup(msg.GroupID, message)
+		updatedMessage, _ := json.Marshal(editMessage)
+		h.sendToGroup(msg.GroupID, updatedMessage)
 	}()
 }
 
-func (h *Hub) deleteAndBroadcastMessage(msg Message, message []byte) {
+func (h *Hub) deleteAndBroadcastMessage(msg Message) {
 	id, err := primitive.ObjectIDFromHex(msg.ID)
 	if err != nil {
 		log.Printf("Error parsing message ID: %v", err)
 		return
 	}
+
+	deleteMessage := DeleteMessage{
+		ID:         msg.ID,
+		Type:       msg.Type,
+		IsDelete:   true,
+		GroupID:    msg.GroupID,
+		SenderID:   msg.SenderID,
+		SenderInfo: msg.SenderInfo,
+		Timestamp:  msg.Timestamp,
+	}
+
 	go func() {
 		if err := h.messageService.DeleteMessage(context.Background(), id, msg.Token); err != nil {
 			log.Printf("Error deleting message: %v", err)
 		}
-		h.sendToGroup(msg.GroupID, message)
+		updatedMessage, _ := json.Marshal(deleteMessage)
+		h.sendToGroup(msg.GroupID, updatedMessage)
 	}()
 }
 
@@ -322,4 +390,8 @@ func (h *Hub) sendToGroup(groupID string, message []byte) {
 			}
 		}
 	}
+}
+
+func (h *Hub) sendMessageAllGroup(message []byte) {
+
 }
