@@ -7,10 +7,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
-	"time"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"log"
+	"time"
 )
 
 type GroupService interface {
@@ -19,7 +19,7 @@ type GroupService interface {
 	AddUserToGroup(ctx context.Context, group *models.GroupUserRequest) error
 	GetAllGroups(ctx context.Context) ([]models.GroupWithMembers, error)
 	GetGroupDetail(ctx context.Context, groupID string) (*models.GroupWithMembers, error)
-	UpdateGroup(ctx context.Context,groupID string ,group *models.GroupRequest) error
+	UpdateGroup(ctx context.Context, groupID string, group *models.GroupRequest) error
 	DeleteGroup(ctx context.Context, groupID string, req *models.TokenUserRequest) error
 	RemoveUserFromGroup(ctx context.Context, groupID string, group *models.GroupUserRequest) error
 	CountKeywordAllGroups(ctx context.Context, keyword string) (*[]models.KeywordOfAllGroups, error)
@@ -31,16 +31,16 @@ type GroupService interface {
 type groupService struct {
 	groupRepository     repository.GroupRepository
 	groupUserRepository repository.GroupMemberRepository
-	chatRepository      repository.ChatRepository
+	messagesRepository  repository.MessagesRepository
 	chatService         ChatService
 	userService         UserService
 }
 
-func NewGroupService(groupRepository repository.GroupRepository, groupUserRepository repository.GroupMemberRepository, chatRepository repository.ChatRepository, userService UserService, chachatService ChatService) GroupService {
+func NewGroupService(groupRepository repository.GroupRepository, groupUserRepository repository.GroupMemberRepository, messagesRepository repository.MessagesRepository, userService UserService, chachatService ChatService) GroupService {
 	return &groupService{
 		groupRepository:     groupRepository,
 		groupUserRepository: groupUserRepository,
-		chatRepository:      chatRepository,
+		messagesRepository:  messagesRepository,
 		userService:         userService,
 		chatService:         chachatService,
 	}
@@ -169,56 +169,56 @@ func (s *groupService) CreateGroup(ctx context.Context, group *models.GroupReque
 }
 
 func (s *groupService) AddUserToGroup(ctx context.Context, group *models.GroupUserRequest) error {
-    // Kiểm tra ID hợp lệ
-    if group.GroupID == "" {
-        return fmt.Errorf("group id cannot be empty")
-    }
+	// Kiểm tra ID hợp lệ
+	if group.GroupID == "" {
+		return fmt.Errorf("group id cannot be empty")
+	}
 
-    if group.UserID == "" {
-        return fmt.Errorf("user id cannot be empty")
-    }
+	if group.UserID == "" {
+		return fmt.Errorf("user id cannot be empty")
+	}
 
-    objectID, err := primitive.ObjectIDFromHex(group.GroupID)
-    if err != nil {
-        return err
-    }
+	objectID, err := primitive.ObjectIDFromHex(group.GroupID)
+	if err != nil {
+		return err
+	}
 
-    // Kiểm tra group tồn tại
-    _, err = s.groupRepository.GetGroupDetail(ctx, objectID)
-    if err != nil {
-        return fmt.Errorf("failed to get group detail: %w", err)
-    }
+	// Kiểm tra group tồn tại
+	_, err = s.groupRepository.GetGroupDetail(ctx, objectID)
+	if err != nil {
+		return fmt.Errorf("failed to get group detail: %w", err)
+	}
 
-    _, err = s.groupUserRepository.GetgroupMemberDetail(ctx, group.UserID, objectID)
-    if err == nil {
-        return fmt.Errorf("user already in group")
-    } else if err != mongo.ErrNoDocuments {
-        return fmt.Errorf("error checking if user is in group: %w", err)
-    }
+	_, err = s.groupUserRepository.GetgroupMemberDetail(ctx, group.UserID, objectID)
+	if err == nil {
+		return fmt.Errorf("user already in group")
+	} else if err != mongo.ErrNoDocuments {
+		return fmt.Errorf("error checking if user is in group: %w", err)
+	}
 
-    groupUserInfor := models.GroupMember{
-        GroupID: objectID,
-        UserID:  group.UserID,
-        Permission: models.Permission{
-            CanRead:            group.CanRead,
-            CanWrite:           group.CanWrite,
-            CanEdit:            group.CanEdit,
-            CanSendImages:      group.CanSendImages,
-            CanUseCameraDevice: group.CanUseCameraDevice,
-        },
-        CreatedAt: time.Now(),
-        UpdateAt:  time.Now(),
-    }
+	groupUserInfor := models.GroupMember{
+		GroupID: objectID,
+		UserID:  group.UserID,
+		Permission: models.Permission{
+			CanRead:            group.CanRead,
+			CanWrite:           group.CanWrite,
+			CanEdit:            group.CanEdit,
+			CanSendImages:      group.CanSendImages,
+			CanUseCameraDevice: group.CanUseCameraDevice,
+		},
+		CreatedAt: time.Now(),
+		UpdateAt:  time.Now(),
+	}
 
-    if err := s.groupUserRepository.AddUserToGroup(ctx, &groupUserInfor); err != nil {
-        return fmt.Errorf("failed to create group user: %w", err)
-    }
+	if err := s.groupUserRepository.AddUserToGroup(ctx, &groupUserInfor); err != nil {
+		return fmt.Errorf("failed to create group user: %w", err)
+	}
 
-    return nil
+	return nil
 }
 
 func (s *groupService) UpdateGroup(ctx context.Context, groupID string, group *models.GroupRequest) error {
-	
+
 	objectID, err := primitive.ObjectIDFromHex(groupID)
 	if err != nil {
 		return err
@@ -267,7 +267,7 @@ func (s *groupService) DeleteGroup(ctx context.Context, groupID string, req *mod
 	return nil
 }
 
-func (s *groupService) RemoveUserFromGroup(ctx context.Context, groupID string, group *models.GroupUserRequest) error{
+func (s *groupService) RemoveUserFromGroup(ctx context.Context, groupID string, group *models.GroupUserRequest) error {
 
 	objectID, err := primitive.ObjectIDFromHex(groupID)
 	if err != nil {
@@ -296,13 +296,13 @@ func (s *groupService) CountKeywordAllGroups(ctx context.Context, keyword string
 	var result []models.KeywordOfAllGroups
 
 	for _, group := range groups {
-		count, arrayID, err := s.chatRepository.CountKeywordMessage(ctx, keyword, group.Group.ID)
+		count, arrayID, err := s.messagesRepository.CountKeywordMessage(ctx, keyword, group.Group.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to count keyword all groups: %w", err)
 		}
-		data := models.KeywordOfAllGroups {
-			Quantity: count,
-			Groups: group.Group,
+		data := models.KeywordOfAllGroups{
+			Quantity:     count,
+			Groups:       group.Group,
 			ArrIdMessage: arrayID,
 		}
 
@@ -364,7 +364,7 @@ func (s *groupService) GenerateGroupQrCode(ctx context.Context, group *models.Gr
 			CanUseCameraDevice: group.CanUseCameraDevice,
 		},
 		ExpiryTime: time.Now().Add(1 * time.Hour),
-		CreatedAt: time.Now(),
+		CreatedAt:  time.Now(),
 	}
 
 	err = s.groupRepository.CreateGroupQrCode(ctx, objectID, &groupQr)
@@ -377,7 +377,7 @@ func (s *groupService) GenerateGroupQrCode(ctx context.Context, group *models.Gr
 }
 
 func (h *groupService) JoinGroupByQrCode(ctx context.Context, group *models.JoinGroupByQrCodeRequest) error {
-	
+
 	if group.QrCodeData == "" {
 		return fmt.Errorf("qr code data cannot be empty")
 	}
@@ -413,12 +413,12 @@ func (h *groupService) JoinGroupByQrCode(ctx context.Context, group *models.Join
 		return fmt.Errorf("failed to get group detail: %w", err)
 	}
 
-	groupUserInfor := models.GroupMember {
-		GroupID: objectID,
-		UserID: group.UserID,
+	groupUserInfor := models.GroupMember{
+		GroupID:    objectID,
+		UserID:     group.UserID,
 		Permission: qrCode.Permission,
-		CreatedAt: time.Now(),
-		UpdateAt: time.Now(),
+		CreatedAt:  time.Now(),
+		UpdateAt:   time.Now(),
 	}
 
 	err = h.groupUserRepository.AddUserToGroup(ctx, &groupUserInfor)

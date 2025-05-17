@@ -11,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type ChatRepository interface {
+type MessagesRepository interface {
 	SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error)
 	EditMessage(ctx context.Context, message *models.EditMessage) error
 	IsUserInGroup(ctx context.Context, userID string, groupID primitive.ObjectID) (bool, error)
@@ -21,19 +21,19 @@ type ChatRepository interface {
     MessageDetail(ctx context.Context, messageID primitive.ObjectID) (*models.Message, error)
 }
 
-type chatRepository struct {
+type messagesRepository struct {
 	collection            *mongo.Collection
 	collectionMemberGroup *mongo.Collection
 }
 
-func NewChatRepository(collection, collectionMemberGroup *mongo.Collection) ChatRepository {
-	return &chatRepository{
+func NewChatRepository(collection, collectionMemberGroup *mongo.Collection) MessagesRepository {
+	return &messagesRepository{
 		collection:            collection,
 		collectionMemberGroup: collectionMemberGroup,
 	}
 }
 
-func (r *chatRepository) IsUserInGroup(ctx context.Context, userID string, groupID primitive.ObjectID) (bool, error) {
+func (r *messagesRepository) IsUserInGroup(ctx context.Context, userID string, groupID primitive.ObjectID) (bool, error) {
 
 	filter := bson.M{"user_id": userID, "group_id": groupID}
 
@@ -45,7 +45,7 @@ func (r *chatRepository) IsUserInGroup(ctx context.Context, userID string, group
 	return count > 0, err
 }
 
-func (r *chatRepository) DeleteMessage(ctx context.Context, messageID primitive.ObjectID) error {
+func (r *messagesRepository) DeleteMessage(ctx context.Context, messageID primitive.ObjectID) error {
 
     filter := bson.M{"_id": messageID}
     update := bson.M{"$set": bson.M{
@@ -60,7 +60,7 @@ func (r *chatRepository) DeleteMessage(ctx context.Context, messageID primitive.
     return nil
 }
 
-func (r *chatRepository) SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error) {
+func (r *messagesRepository) SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error) {
 
 	res, err := r.collection.InsertOne(ctx, message)
 	if err != nil {
@@ -70,7 +70,7 @@ func (r *chatRepository) SaveMessage(ctx context.Context, message *models.Messag
 
 }
 
-func (r *chatRepository) EditMessage(ctx context.Context, message *models.EditMessage) error {
+func (r *messagesRepository) EditMessage(ctx context.Context, message *models.EditMessage) error {
 
 	objectID, err := primitive.ObjectIDFromHex(message.ID)
 	if err != nil {
@@ -92,7 +92,7 @@ func (r *chatRepository) EditMessage(ctx context.Context, message *models.EditMe
 	return nil
 }
 
-func (r *chatRepository) GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID, from *time.Time, to *time.Time) ([]*models.Message, error) {
+func (r *messagesRepository) GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID, from *time.Time, to *time.Time) ([]*models.Message, error) {
 
 	filter := bson.M{
 		"group_id": groupID,
@@ -128,7 +128,7 @@ func (r *chatRepository) GetMessagesByGroupID(ctx context.Context, groupID primi
 }
 
 
-func (r *chatRepository) CountKeywordMessage(ctx context.Context, keyword string, groupID primitive.ObjectID) (int, []string, error) {
+func (r *messagesRepository) CountKeywordMessage(ctx context.Context, keyword string, groupID primitive.ObjectID) (int, []string, error) {
 
     filter := bson.M{
         "content": primitive.Regex{
@@ -158,7 +158,7 @@ func (r *chatRepository) CountKeywordMessage(ctx context.Context, keyword string
     return len(messages), messagesID, nil
 }
 
-func (r *chatRepository) MessageDetail(ctx context.Context, messageID primitive.ObjectID) (*models.Message, error) {
+func (r *messagesRepository) MessageDetail(ctx context.Context, messageID primitive.ObjectID) (*models.Message, error) {
 
     filter := bson.M{"_id": messageID}
 

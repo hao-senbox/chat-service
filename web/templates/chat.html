@@ -7,7 +7,6 @@
     <title>{{ .title }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-
         .message {
             position: relative;
         }
@@ -16,7 +15,7 @@
             position: absolute;
             top: 0;
             bottom: 0;
-            right: -50px; 
+            right: -50px;
             width: 50px;
             display: flex;
             align-items: center;
@@ -601,11 +600,11 @@
             $(window).on("beforeunload", cleanupWebSocket);
 
             // Thêm xử lý upload ảnh
-            $("#image-button").on("click", function() {
+            $("#image-button").on("click", function () {
                 $("#image-input").click();
             });
 
-            $("#image-input").on("change", function(e) {
+            $("#image-input").on("change", function (e) {
                 const file = e.target.files[0];
                 if (!file) return;
 
@@ -623,7 +622,7 @@
                     data: formData,
                     processData: false,
                     contentType: false,
-                    success: function(response) {
+                    success: function (response) {
                         if (response.status_code === 200) {
                             // Gửi tin nhắn với key ảnh
                             const message = {
@@ -641,7 +640,7 @@
                             displaySystemMessage("Lỗi khi tải ảnh lên");
                         }
                     },
-                    error: function() {
+                    error: function () {
                         displaySystemMessage("Lỗi khi tải ảnh lên");
                     }
                 });
@@ -679,7 +678,6 @@
                             return;
                         }
 
-
                         handleReconnect();
                     };
 
@@ -690,52 +688,94 @@
                     conn.onmessage = function (evt) {
                         try {
                             missedHeartbeats = 0;
-                            const message = JSON.parse(evt.data);
-                            console.log("Nhận tin nhắn:", message)
-                            // Xử lý thông báo cập nhật số người online
-                            if (message.type === "online_update") {
-                                onlineUsers.count = message.online_count;
-                                onlineUsers.users = message.online_users || [];
-                                updateOnlineUsersDisplay();
-                                return;
-                            }
 
-                            if (message.type === 'edit-message') {
-                                const $msgDiv = $(`.message[data-id='${message.id}']`);
-                                if ($msgDiv.length) {
-                                    $msgDiv.find('.message-content').text(message.content);
-                                }
-                                
-                                return;
-                            }
-
-                            if (message.type === 'delete-message') {
-                                const $msgDiv = $(`.message[data-id='${message.id}']`);
-                                if ($msgDiv.length) {
-                                    $msgDiv.find('.message-content').text("Tin nhắn đã bị thu hồi");
-                                    $msgDiv.css("opacity", "0.5");
-                                    $msgDiv.find('.message-controls').remove();
-                                }
-                                return;
-                            }
-
-                            if (message.type === "pong") {
-                                console.log("Nhận heartbeat pong");
-                                return;
-                            }
-
-                            if (message.error) {
-                                console.error("Lỗi từ server:", message.error);
-                                displaySystemMessage("Lỗi: " + message.error);
-                                return;
-                            }
-
-                            displayMessage(message);
-                        } catch (e) {
+                            // Kiểm tra nếu dữ liệu là chuỗi đơn giản "pong"
                             if (evt.data === "pong") {
                                 console.log("Nhận heartbeat pong");
                                 return;
                             }
+
+                            // Xử lý tin nhắn JSON
+                            let messages;
+
+                            // Kiểm tra nếu evt.data chứa nhiều JSON (phân tách bởi dòng mới)
+                            if (evt.data.includes('\n')) {
+                                const jsonStrings = evt.data.split('\n').filter(str => str.trim() !== '');
+                                messages = jsonStrings.map(jsonStr => {
+                                    try {
+                                        return JSON.parse(jsonStr);
+                                    } catch (e) {
+                                        console.error("Lỗi phân tích phần tin nhắn:", e, jsonStr);
+                                        return null;
+                                    }
+                                }).filter(msg => msg !== null);
+                            } else {
+                                // Một JSON duy nhất
+                                messages = [JSON.parse(evt.data)];
+                            }
+
+                            // Xử lý từng tin nhắn đã phân tách
+                            messages.forEach(message => {
+                                console.log("Nhận tin nhắn:", message);
+
+                                // Xử lý thông báo tin nhắn chưa đọc khi vừa tham gia group
+                                if (message.type === "unread_notification") {
+                                    console.log(`Có ${message.unread} tin nhắn chưa đọc`);
+
+                                    // Đánh dấu tất cả tin nhắn chưa đọc là đã đọc
+                                    if (message.unread_message_ids && message.unread_message_ids.length > 0) {
+                                        sendBatchReadReceipt(message.unread_message_ids);
+                                    }
+
+                                    return;
+                                }
+
+                                // Các xử lý tin nhắn như trước đây...
+                                if (message.type === "online_update") {
+                                    onlineUsers.count = message.online_count;
+                                    onlineUsers.users = message.online_users || [];
+                                    updateOnlineUsersDisplay();
+                                    return;
+                                }
+
+                                if (message.type === 'edit-message') {
+                                    const $msgDiv = $(`.message[data-id='${message.id}']`);
+                                    if ($msgDiv.length) {
+                                        $msgDiv.find('.message-content').text(message.content);
+                                    }
+                                    return;
+                                }
+
+                                if (message.type === 'delete-message') {
+                                    const $msgDiv = $(`.message[data-id='${message.id}']`);
+                                    if ($msgDiv.length) {
+                                        $msgDiv.find('.message-content').text("Tin nhắn đã bị thu hồi");
+                                        $msgDiv.css("opacity", "0.5");
+                                        $msgDiv.find('.message-controls').remove();
+                                    }
+                                    return;
+                                }
+
+                                if (message.type === "pong") {
+                                    console.log("Nhận heartbeat pong");
+                                    return;
+                                }
+
+                                if (message.error) {
+                                    console.error("Lỗi từ server:", message.error);
+                                    displaySystemMessage("Lỗi: " + message.error);
+                                    return;
+                                }
+
+                                if (message.type === "read-receipt") {
+                                    // Xử lý read-receipt ở đây
+                                    updateReadStatus(message);
+                                    return;
+                                }
+
+                                displayMessage(message);
+                            });
+                        } catch (e) {
                             console.error("Lỗi định dạng tin nhắn:", e);
                             console.error("Raw message data:", evt.data);
                         }
@@ -744,6 +784,67 @@
                     console.error("Không thể tạo kết nối WebSocket:", error);
                     isConnecting = false;
                     handleReconnect();
+                }
+            }
+
+            function sendBatchReadReceipt(messageIds) {
+                if (!conn || conn.readyState !== WebSocket.OPEN || !messageIds || messageIds.length === 0) {
+                    console.log("WebSocket không kết nối hoặc không có tin nhắn, không thể gửi batch read receipt");
+                    return;
+                }
+
+                // Gửi batch-read-receipt để server xử lý nhiều tin nhắn cùng lúc
+                const batchReadReceipt = {
+                    type: "batch-read-receipt",
+                    message_ids: messageIds,
+                    group_id: groupID,
+                    sender_id: userID
+                };
+
+                conn.send(JSON.stringify(batchReadReceipt));
+
+                console.log(`Đã gửi batch read receipt cho ${messageIds.length} tin nhắn`);
+            }
+
+            function updateReadStatus(readReceiptMessage) {
+                const messageId = readReceiptMessage.message_id;
+                const $message = $(`.message[data-id='${messageId}']`);
+
+                if ($message.length) {
+                    // Find or create the read status display area
+                    let $readStatus = $message.find('.read-status');
+                    if ($readStatus.length === 0) {
+                        $readStatus = $("<div>")
+                            .addClass("read-status")
+                            .css({
+                                "font-size": "10px",
+                                "color": "#888",
+                                "text-align": "right",
+                                "margin-top": "2px"
+                            });
+                        $message.append($readStatus);
+                    }
+
+                    // Update the read information
+                    if (readReceiptMessage.read_by && readReceiptMessage.read_by.length > 0) {
+                        // Display "Đã đọc: [list of readers]" with modified names for received messages
+                        const readByUsers = readReceiptMessage.read_by.map(user => {
+                            // If this is a received message, display "bạn" instead of the actual username
+                            if ($message.hasClass('message-received') && user.user_id === userID) {
+                                return 'bạn';
+                            }
+                            return user.username || 'Unknown';
+                        }).join(', ');
+
+                        $readStatus.text(`Đã đọc: ${readByUsers}`);
+                    } else if (readReceiptMessage.reader_info) {
+                        // Display reader name, using "bạn" for received messages
+                        let readerName = readReceiptMessage.reader_info.user_name || 'Unknown';
+                        if ($message.hasClass('message-received')) {
+                            readerName = 'bạn';
+                        }
+                        $readStatus.text(`Đã đọc: ${readerName}`);
+                    }
                 }
             }
 
@@ -849,7 +950,7 @@
                 const $message = $("<div>")
                     .addClass(`message ${isSent ? 'message-sent' : 'message-received'}`)
                     .attr("data-id", message.id);
-                
+
                 const $header = $("<div>")
                     .addClass("message-header");
 
@@ -869,8 +970,7 @@
                 if (message.sender_infor && message.sender_infor.avatar) {
                     $avatar.css("background-image", `url(${message.sender_infor.avatar})`);
                 } else {
-                    // Nếu không có avatar, hiển thị avatar mặc định
-                    $avatar.css("background-image", "url('data:image/png;base64,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')");
+                    // $avatar.css("background-image", "url(''");
                 }
 
                 const $userInfo = $("<div>")
@@ -919,13 +1019,13 @@
                             });
 
                         // Thêm sự kiện load ảnh
-                        $image.on("load", function() {
+                        $image.on("load", function () {
                             $(this).css("opacity", "1");
                             $loading.remove();
                         });
 
                         // Thêm sự kiện lỗi ảnh
-                        $image.on("error", function() {
+                        $image.on("error", function () {
                             $(this).attr("src", "/static/images/image-error.png");
                             $loading.remove();
                         });
@@ -939,7 +1039,7 @@
                             },
                             contentType: "application/json",
                             data: JSON.stringify({ key: message.image_key }), // gửi trong body
-                            success: function(response) {
+                            success: function (response) {
                                 if (response.status_code === 200) {
                                     $image.attr("src", response.data);
                                 } else {
@@ -959,37 +1059,37 @@
                 const $timestamp = $("<div>")
                     .addClass("timestamp")
                     .text(formatted);
-                
+
                 if (isSent && !message.is_delete) {
                     // Thêm vùng chứa (container) với khu vực hover rộng hơn
                     const $actionsContainer = $("<div>")
                         .addClass("message-actions-container");
-                        
+
                     // Thêm dropdown menu cho các hành động
                     const $actions = $("<div>")
                         .addClass("message-actions");
-                        
+
                     const $actionIcon = $("<button>")
                         .addClass("message-action-btn")
                         .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>')
-                        .on("click", function(e) {
+                        .on("click", function (e) {
                             e.stopPropagation();
                             // Đóng tất cả các dropdown khác trước khi mở dropdown hiện tại
                             $(".message-dropdown").removeClass("show");
                             $(this).next(".message-dropdown").toggleClass("show");
                         });
-                        
+
                     const $dropdown = $("<div>")
                         .addClass("message-dropdown");
-                        
+
                     const $recallOption = $("<div>")
                         .addClass("dropdown-option recall-option")
                         .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg><span>Thu hồi</span>')
-                        .on("click", function() {
+                        .on("click", function () {
                             recallMessage(message.id);
                             $(this).closest(".message-dropdown").removeClass("show");
                         });
-                        
+
                     $dropdown.append($recallOption);
                     $actions.append($actionIcon).append($dropdown);
                     $actionsContainer.append($actions);
@@ -1000,9 +1100,9 @@
 
                 $("#chat-area").append($message)
                     .scrollTop($("#chat-area")[0].scrollHeight);
-                
+
                 // Ẩn dropdown khi click bên ngoài
-                $(document).on("click", function(e) {
+                $(document).on("click", function (e) {
                     if (!$(e.target).closest(".message-actions").length) {
                         $(".message-dropdown").removeClass("show");
                     }
@@ -1196,7 +1296,7 @@
                 };
 
                 conn.send(JSON.stringify(recallRequest));
-                
+
                 const $messageElement = $(`.message[data-id="${messageId}"]`);
                 if ($messageElement.length) {
                     $messageElement.find(".message-content").text("Tin nhắn đã bị thu hồi");

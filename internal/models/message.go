@@ -39,3 +39,9 @@ type UserInfor struct {
 	Avartar    string     `json:"avatar"`
 	LastOnline *time.Time `json:"last_online"`
 }
+
+type ReadReceipt struct {
+	UserID string    `bson:"user_id" json:"user_id"`
+	ReadAt time.Time `bson:"read_at" json:"read_at"`
+}
+

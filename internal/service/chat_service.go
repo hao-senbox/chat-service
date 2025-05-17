@@ -24,31 +24,75 @@ type ChatService interface {
 	SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error)
 	EditMessage(ctx context.Context, message *models.EditMessage) error
 	DeleteMessageByGroupID(ctx context.Context, groupID string, token string) error
+	MarkAsRead(ctx context.Context, messageID string, userID string, senderID string, groupID string) error
+	GetMessageReadStatus(ctx context.Context, messageIDs []string, groupID string) (map[string][]models.ReadReceipt, error)
+	GetUnreadMessages(ctx context.Context, userID string, groupID string) ([]primitive.ObjectID, error)
 }
 type chatService struct {
-	chatRepository repository.ChatRepository
-	groupService   GroupService
-	userService    UserService
-	client         *callAPI
+	messagesRepository     repository.MessagesRepository
+	messagesReadRepository repository.ReadMessageRepository
+	groupService           GroupService
+	userService            UserService
+	client                 *callAPI
 }
 
-
-func NewChatService(client *api.Client, chatRepository repository.ChatRepository, groupService GroupService, userService UserService) ChatService {
+func NewChatService(client *api.Client, messagesRepository repository.MessagesRepository, messagesReadRepository repository.ReadMessageRepository, groupService GroupService, userService UserService) ChatService {
 	mainServiceAPI := NewServiceAPI(client, mainService)
 	return &chatService{
-		client:         mainServiceAPI,
-		chatRepository: chatRepository,
-		groupService:   groupService,
-		userService:    userService,
+		client:                 mainServiceAPI,
+		messagesRepository:     messagesRepository,
+		groupService:           groupService,
+		userService:            userService,
+		messagesReadRepository: messagesReadRepository,
 	}
 }
 
+func (s *chatService) MarkAsRead(ctx context.Context, messageID string, userID string, senderID string, groupID string) error {
+
+	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
+	if err != nil {
+		return err
+	}
+
+	objectMessageID, err := primitive.ObjectIDFromHex(messageID)
+	if err != nil {
+		return err
+	}
+
+	return s.messagesReadRepository.MarkAsRead(ctx, objectMessageID, userID, senderID, objectGroupID)
+}
+
+func (s *chatService) GetMessageReadStatus(ctx context.Context, messageIDs []string, groupID string) (map[string][]models.ReadReceipt, error) {
+
+	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.messagesReadRepository.GetReadStatus(ctx, messageIDs, objectGroupID)
+}
+
+func (s *chatService) GetUnreadMessages(ctx context.Context, userID string, groupID string) ([]primitive.ObjectID, error) {
+
+	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	messageIds, err := s.messagesReadRepository.GetUnreadMessages(ctx, userID, objectGroupID)
+	if err != nil {
+		return nil, err
+	}
+
+	return messageIds, nil
+}
+
 func (s *chatService) EditMessage(ctx context.Context, message *models.EditMessage) error {
-	return s.chatRepository.EditMessage(ctx, message)
+	return s.messagesRepository.EditMessage(ctx, message)
 }
 
 func (s *chatService) GetUserInformation(ctx context.Context, userID string) (*models.UserInfor, error) {
-	
+
 	user, err := s.userService.GetUserOnline(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -57,7 +101,7 @@ func (s *chatService) GetUserInformation(ctx context.Context, userID string) (*m
 }
 
 func (s *chatService) SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error) {
-	return s.chatRepository.SaveMessage(ctx, message)
+	return s.messagesRepository.SaveMessage(ctx, message)
 }
 
 func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from *time.Time, to *time.Time) ([]*models.MessageWithUser, error) {
@@ -67,7 +111,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 		return nil, err
 	}
 
-	messages, err := s.chatRepository.GetMessagesByGroupID(ctx, objectID, from, to)
+	messages, err := s.messagesRepository.GetMessagesByGroupID(ctx, objectID, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +129,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 			fetchedInfo, err := s.userService.GetUserInfor(msg.SenderID)
 			if err != nil {
 				fmt.Printf("Failed to get user info for %s: %v\n", msg.SenderID, err)
-				fetchedInfo = &models.UserInfor{} 
+				fetchedInfo = &models.UserInfor{}
 			}
 			userInfo = &models.UserInfor{
 				UserID:   fetchedInfo.UserID,
@@ -107,20 +151,19 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 			SenderInfor: userInfo,
 		})
 	}
-	
 
 	return enrichedMessages, nil
 }
 
-func(s *chatService) IsUserInGroup(ctx context.Context, userID string, groupID string) (bool, error) {
+func (s *chatService) IsUserInGroup(ctx context.Context, userID string, groupID string) (bool, error) {
 
 	objectID, err := primitive.ObjectIDFromHex(groupID)
 	if err != nil {
 		return false, err
 	}
 
-	return s.chatRepository.IsUserInGroup(ctx, userID, objectID)
-	
+	return s.messagesRepository.IsUserInGroup(ctx, userID, objectID)
+
 }
 
 func (s *chatService) DownloadGroupMessages(ctx *gin.Context, groupID string, from *time.Time, to *time.Time) error {
@@ -151,7 +194,7 @@ func (s *chatService) DownloadGroupMessages(ctx *gin.Context, groupID string, fr
 	ctx.Header("Content-Type", "text/plain")
 	ctx.String(http.StatusOK, buffer.String())
 
-	return nil 
+	return nil
 }
 
 func (s *chatService) DeleteMessageByGroupID(ctx context.Context, groupID string, token string) error {
@@ -161,7 +204,7 @@ func (s *chatService) DeleteMessageByGroupID(ctx context.Context, groupID string
 		return err
 	}
 
-	messages, err := s.chatRepository.GetMessagesByGroupID(ctx, objectID, nil, nil)
+	messages, err := s.messagesRepository.GetMessagesByGroupID(ctx, objectID, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -172,16 +215,16 @@ func (s *chatService) DeleteMessageByGroupID(ctx context.Context, groupID string
 			return err
 		}
 	}
-	
+
 	return nil
 }
 func (s *chatService) DeleteMessage(ctx context.Context, messageID primitive.ObjectID, token string) error {
-	err := s.chatRepository.DeleteMessage(ctx, messageID)
+	err := s.messagesRepository.DeleteMessage(ctx, messageID)
 	if err != nil {
 		return err
 	}
 
-	message, err := s.chatRepository.MessageDetail(ctx, messageID)
+	message, err := s.messagesRepository.MessageDetail(ctx, messageID)
 	if err != nil {
 		return err
 	}
@@ -207,7 +250,7 @@ func (c *callAPI) DeleteImage(key string, token string) error {
 	headers := map[string]string{
 		"Content-Type":  "application/json",
 		"Authorization": "Bearer " + token,
-	}	
+	}
 
 	endpoint := "/v1/images/delete"
 	_, err = c.client.CallAPI(c.clientServer, endpoint, http.MethodPost, jsonData, headers)
@@ -217,3 +260,4 @@ func (c *callAPI) DeleteImage(key string, token string) error {
 
 	return nil
 }
+
