@@ -5,6 +5,7 @@ import (
 	"chat-service/internal/service"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,7 +28,7 @@ func (h *ChatHandlers) GetGroupMessages(c *gin.Context) {
 		return
 	}
 
-	messages, err := h.chatService.GetGroupMessages(c, groupID)
+	messages, err := h.chatService.GetGroupMessages(c, groupID, nil, nil)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return
@@ -56,6 +57,29 @@ func (h *ChatHandlers) IsUserInGroup(c *gin.Context) {
 }
 
 func (h *ChatHandlers) DownloadGroupMessages(c *gin.Context) {
+	
+	var fromTime, toTime *time.Time
+	
+	fromStr := c.Query("from")
+	if fromStr != "" {
+		t, err := time.Parse(time.RFC3339, fromStr)
+		if err != nil {
+			SendError(c, http.StatusBadRequest, fmt.Errorf("invalid from time"), models.ErrInvalidRequest)
+			return
+		}
+		fromTime = &t
+	}
+
+	toStr := c.Query("to")
+	if toStr != "" {
+		t, err := time.Parse(time.RFC3339, toStr)
+		if err != nil {
+			SendError(c, http.StatusBadRequest, fmt.Errorf("invalid to time"), models.ErrInvalidRequest)
+			return
+		}
+		toTime = &t
+	}
+
 
 	groupID := c.Param("group_id")
 
@@ -64,7 +88,7 @@ func (h *ChatHandlers) DownloadGroupMessages(c *gin.Context) {
 		return
 	}
 
-	err := h.chatService.DownloadGroupMessages(c, groupID)
+	err := h.chatService.DownloadGroupMessages(c, groupID, fromTime, toTime)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return

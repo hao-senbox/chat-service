@@ -58,19 +58,24 @@ func main() {
 	groupMemberCollection := mongoClient.Database(cfg.MongoDB).Collection("group_member")
 	messagesCollection := mongoClient.Database(cfg.MongoDB).Collection("messages")
 	userOnlineCollection := mongoClient.Database(cfg.MongoDB).Collection("user_online")
-
+	messagesReadCollection := mongoClient.Database(cfg.MongoDB).Collection("messages_read")
+	messagesReadRepository := repository.NewReadMessageRepository(messagesReadCollection)
+	if err := messagesReadRepository.EnsureIndexes(context.Background()); err != nil {
+		log.Fatalf("Failed to create indexes: %v", err)
+	}
 	userOnlineRepository := repository.NewUserOnlineRepository(userOnlineCollection)
 	userService := service.NewUserService(consulClient, userOnlineRepository)
 
 	messagesRepository := repository.NewChatRepository(messagesCollection, groupMemberCollection)
 	groupRepository := repository.NewGroupRepository(groupCollection, groupMemberCollection, nil)
 	groupMemberRepository := repository.NewGroupMemberRepository(groupMemberCollection, groupRepository)
-	groupService := service.NewGroupService(groupRepository, groupMemberRepository, messagesRepository, userService)
-	messageService := service.NewChatService(messagesRepository, groupService, userService)
-
+	groupService := service.NewGroupService(groupRepository, groupMemberRepository, messagesRepository, userService, nil)
+	messageService := service.NewChatService(consulClient ,messagesRepository, messagesReadRepository, groupService, userService)
+	
+	groupService.SetMessageService(messageService)
 	groupRepository.SetGroupMemberRepo(groupMemberRepository)
 
-	hub := socket.NewHub(messagesRepository, userService, userOnlineRepository)
+	hub := socket.NewHub(messageService, userService, userOnlineRepository)
 	go hub.Run()
 	// Set up router with Gin
 	router := gin.Default()
