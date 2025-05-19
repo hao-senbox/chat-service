@@ -25,26 +25,63 @@ type ChatService interface {
 	EditMessage(ctx context.Context, message *models.EditMessage) error
 	DeleteMessageByGroupID(ctx context.Context, groupID string, token string) error
 	MarkAsRead(ctx context.Context, messageID string, userID string, senderID string, groupID string) error
-	GetMessageReadStatus(ctx context.Context, messageIDs []string, groupID string) (map[string][]models.ReadReceipt, error)
-	GetUnreadMessages(ctx context.Context, userID string, groupID string) ([]primitive.ObjectID, error)
+	InsertMessageReact(ctx context.Context, messageID, groupID, userID, reactType string) error
+	// GetMessageReadStatus(ctx context.Context, messageIDs []string, groupID string) (map[string][]models.ReadReceipt, error)
+	// GetUnreadMessages(ctx context.Context, userID string, groupID string) ([]primitive.ObjectID, error)
 }
 type chatService struct {
-	messagesRepository     repository.MessagesRepository
-	messagesReadRepository repository.ReadMessageRepository
-	groupService           GroupService
-	userService            UserService
-	client                 *callAPI
+	messagesRepository      repository.MessagesRepository
+	messagesReadRepository  repository.ReadMessageRepository
+	messagesReactRepository repository.MessageReactRepository
+	groupService            GroupService
+	userService             UserService
+	client                  *callAPI
 }
 
-func NewChatService(client *api.Client, messagesRepository repository.MessagesRepository, messagesReadRepository repository.ReadMessageRepository, groupService GroupService, userService UserService) ChatService {
+func NewChatService(client *api.Client,
+	messagesRepository repository.MessagesRepository,
+	messagesReadRepository repository.ReadMessageRepository,
+	groupService GroupService,
+	userService UserService,
+	messagesReactRepository repository.MessageReactRepository) ChatService {
 	mainServiceAPI := NewServiceAPI(client, mainService)
 	return &chatService{
-		client:                 mainServiceAPI,
-		messagesRepository:     messagesRepository,
-		groupService:           groupService,
-		userService:            userService,
-		messagesReadRepository: messagesReadRepository,
+		client:                  mainServiceAPI,
+		messagesRepository:      messagesRepository,
+		groupService:            groupService,
+		userService:             userService,
+		messagesReadRepository:  messagesReadRepository,
+		messagesReactRepository: messagesReactRepository,
 	}
+}
+
+func (s *chatService) InsertMessageReact(ctx context.Context, messageID, groupID, userID, reactType string) error {
+
+	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
+	if err != nil {
+		return err
+	}
+
+	objectMessageID, err := primitive.ObjectIDFromHex(messageID)
+	if err != nil {
+		return err
+	}
+
+	messagesReact := &models.MessageReact{
+		MessageID: objectMessageID,
+		GroupID:   objectGroupID,
+		UserID:    userID,
+		React:     reactType,
+		CreatedAt: time.Now(),
+		UpdateAt:  time.Now(),
+	}
+
+	err = s.messagesReactRepository.InsertMessageReact(ctx, messagesReact)
+	if err != nil {
+		return err
+	}
+
+	return nil 
 }
 
 func (s *chatService) MarkAsRead(ctx context.Context, messageID string, userID string, senderID string, groupID string) error {
@@ -62,30 +99,30 @@ func (s *chatService) MarkAsRead(ctx context.Context, messageID string, userID s
 	return s.messagesReadRepository.MarkAsRead(ctx, objectMessageID, userID, senderID, objectGroupID)
 }
 
-func (s *chatService) GetMessageReadStatus(ctx context.Context, messageIDs []string, groupID string) (map[string][]models.ReadReceipt, error) {
+// func (s *chatService) GetMessageReadStatus(ctx context.Context, messageIDs []string, groupID string) (map[string][]models.ReadReceipt, error) {
 
-	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
-	if err != nil {
-		return nil, err
-	}
+// 	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return s.messagesReadRepository.GetReadStatus(ctx, messageIDs, objectGroupID)
-}
+// 	return s.messagesReadRepository.GetReadStatus(ctx, messageIDs, objectGroupID)
+// }
 
-func (s *chatService) GetUnreadMessages(ctx context.Context, userID string, groupID string) ([]primitive.ObjectID, error) {
+// func (s *chatService) GetUnreadMessages(ctx context.Context, userID string, groupID string) ([]primitive.ObjectID, error) {
 
-	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
-	if err != nil {
-		return nil, err
-	}
+// 	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	messageIds, err := s.messagesReadRepository.GetUnreadMessages(ctx, userID, objectGroupID)
-	if err != nil {
-		return nil, err
-	}
+// 	messageIds, err := s.messagesReadRepository.GetUnreadMessages(ctx, userID, objectGroupID)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return messageIds, nil
-}
+// 	return messageIds, nil
+// }
 
 func (s *chatService) EditMessage(ctx context.Context, message *models.EditMessage) error {
 	return s.messagesRepository.EditMessage(ctx, message)
@@ -150,6 +187,35 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 			CreatedAt:   msg.CreatedAt,
 			SenderInfor: userInfo,
 		})
+
+		// readByUserIDs, err := s.messagesReadRepository.GetReadByUserIDs(ctx, msg.ID, objectID)
+		// if err != nil {
+		// 	return nil, err
+		// }
+
+		// var readBy []*models.UserInfor
+		// for _, userID := range readByUserIDs {
+		// 	var userInfo *models.UserInfor
+		// 	if cached, ok := userCache[userID]; ok {
+		// 		userInfo = cached
+		// 	} else {
+		// 		fmt.Printf("Fetching user info for read_by: %s\n", userID)
+		// 		fetchedInfo, err := s.userService.GetUserInfor(userID)
+		// 		if err != nil {
+		// 			fmt.Printf("Failed to get user info for read_by %s: %v\n", userID, err)
+		// 			fetchedInfo = &models.UserInfor{}
+		// 		}
+		// 		userInfo = &models.UserInfor{
+		// 			UserID:   fetchedInfo.UserID,
+		// 			UserName: fetchedInfo.UserName,
+		// 			Avartar:  fetchedInfo.Avartar,
+		// 		}
+		// 		userCache[userID] = userInfo
+		// 	}
+		// 	readBy = append(readBy, userInfo)
+		// }
+
+		// enrichedMessages[len(enrichedMessages)-1].ReadBy = readBy
 	}
 
 	return enrichedMessages, nil
@@ -260,4 +326,3 @@ func (c *callAPI) DeleteImage(key string, token string) error {
 
 	return nil
 }
-

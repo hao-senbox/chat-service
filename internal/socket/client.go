@@ -99,33 +99,33 @@ func (c *Client) writePump() {
 				return
 			}
 
-			var msgType struct {
-				Type     string `json:"type"`
-				ID       string `json:"id"`
-				GroupID  string `json:"group_id"`
-				SenderID string `json:"sender_id"`
-				ReaderID string `json:"reader_id"`
-			}
-			if err := json.Unmarshal(message, &msgType); err == nil {
-				if (msgType.Type == "message" || msgType.Type == "edit-message") &&
-					msgType.SenderID != c.userID && msgType.ID != "" {
-					readReceipt := struct {
-						Type      string `json:"type"`
-						MessageID string `json:"message_id"`
-						GroupID   string `json:"group_id"`
-						SenderID  string `json:"sender_id"`
-						ReaderID  string `json:"reader_id"`
-					}{
-						Type:      "read-receipt",
-						MessageID: msgType.ID,
-						GroupID:   msgType.GroupID,
-						SenderID:  msgType.SenderID,
-						ReaderID:  c.userID,
-					}
-					readMsg, _ := json.Marshal(readReceipt)
-					c.hub.broadcast <- readMsg
-				}
-			}
+			// var msgType struct {
+			// 	Type     string `json:"type"`
+			// 	ID       string `json:"id"`
+			// 	GroupID  string `json:"group_id"`
+			// 	SenderID string `json:"sender_id"`
+			// 	ReaderID string `json:"reader_id"`
+			// }
+			// if err := json.Unmarshal(message, &msgType); err == nil {
+			// 	if (msgType.Type == "message" || msgType.Type == "edit-message") &&
+			// 		msgType.SenderID != c.userID && msgType.ID != "" {
+			// 		readReceipt := struct {
+			// 			Type      string `json:"type"`
+			// 			MessageID string `json:"message_id"`
+			// 			GroupID   string `json:"group_id"`
+			// 			SenderID  string `json:"sender_id"`
+			// 			ReaderID  string `json:"reader_id"`
+			// 		}{
+			// 			Type:      "read-receipt",
+			// 			MessageID: msgType.ID,
+			// 			GroupID:   msgType.GroupID,
+			// 			SenderID:  msgType.SenderID,
+			// 			ReaderID:  c.userID,
+			// 		}
+			// 		readMsg, _ := json.Marshal(readReceipt)
+			// 		c.hub.broadcast <- readMsg
+			// 	}
+			// }
 
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
