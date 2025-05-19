@@ -46,3 +46,9 @@ type TokenUserRequest struct {
 	Token string `json:"token"`
 }
 
+type ReactMessageRequest struct {
+	MessageID string `json:"message_id"`
+	GroupID   string `json:"group_id"`
+	UserID    string `json:"user_id"`
+	React     string `json:"react"`
+}

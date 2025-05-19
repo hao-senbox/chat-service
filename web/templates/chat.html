@@ -11,6 +11,67 @@
             position: relative;
         }
 
+        .reaction-bar {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            padding: 5px 10px;
+            z-index: 3;
+            margin-bottom: 5px;
+        }
+
+        .reaction-bar.show {
+            display: flex;
+        }
+
+        .reaction-option {
+            font-size: 18px;
+            margin: 0 5px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .reaction-option:hover {
+            transform: scale(1.2);
+        }
+
+        .message-reactions {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 5px;
+            padding: 3px;
+        }
+
+        .reaction-counter {
+            background-color: rgba(0, 0, 0, 0.1);
+            padding: 2px 5px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-right: 5px;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+        }
+
+        .reaction-counter span {
+            margin-left: 3px;
+        }
+
+        .message-sent .reaction-counter {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+
         .message-actions-container {
             position: absolute;
             top: 0;
@@ -656,7 +717,14 @@
             const heartbeatTime = 55000; // 55s
             let missedHeartbeats = 0;
             const maxMissedHeartbeats = 3;
-
+            const reactionEmojis = {
+                "like": "👍",
+                "love": "❤️",
+                "haha": "😂",
+                "wow": "😮",
+                "sad": "😢",
+                "angry": "😠"
+            };
             // Biến theo dõi số người dùng online
             let onlineUsers = {
                 count: 0,
@@ -791,19 +859,6 @@
                             // Xử lý từng tin nhắn đã phân tách
                             messages.forEach(message => {
                                 console.log("Nhận tin nhắn:", message);
-
-                                // Xử lý thông báo tin nhắn chưa đọc khi vừa tham gia group
-                                if (message.type === "unread_notification") {
-                                    console.log(`Có ${message.unread} tin nhắn chưa đọc`);
-
-                                    // Đánh dấu tất cả tin nhắn chưa đọc là đã đọc
-                                    if (message.unread_message_ids && message.unread_message_ids.length > 0) {
-                                        sendBatchReadReceipt(message.unread_message_ids);
-                                    }
-
-                                    return;
-                                }
-
                                 // Các xử lý tin nhắn như trước đây...
                                 if (message.type === "online_update") {
                                     onlineUsers.count = message.online_count;
@@ -830,6 +885,10 @@
                                     return;
                                 }
 
+                                if (message.type == "react-message") {
+                                    return
+                                }
+
                                 if (message.type === "pong") {
                                     console.log("Nhận heartbeat pong");
                                     return;
@@ -838,12 +897,6 @@
                                 if (message.error) {
                                     console.error("Lỗi từ server:", message.error);
                                     displaySystemMessage("Lỗi: " + message.error);
-                                    return;
-                                }
-
-                                if (message.type === "read-receipt") {
-                                    // Xử lý read-receipt ở đây
-                                    updateReadStatus(message);
                                     return;
                                 }
 
@@ -860,75 +913,6 @@
                     handleReconnect();
                 }
             }
-
-            function sendBatchReadReceipt(messageIds) {
-                if (!conn || conn.readyState !== WebSocket.OPEN || !messageIds || messageIds.length === 0) {
-                    console.log("WebSocket không kết nối hoặc không có tin nhắn, không thể gửi batch read receipt");
-                    return;
-                }
-
-                // Gửi batch-read-receipt để server xử lý nhiều tin nhắn cùng lúc
-                const batchReadReceipt = {
-                    type: "batch-read-receipt",
-                    message_ids: messageIds,
-                    group_id: groupID,
-                    sender_id: userID
-                };
-
-                conn.send(JSON.stringify(batchReadReceipt));
-
-                console.log(`Đã gửi batch read receipt cho ${messageIds.length} tin nhắn`);
-            }
-
-            function updateReadStatus(readReceiptMessage) {
-                const messageId = readReceiptMessage.message_id;
-                const $message = $(`.message[data-id='${messageId}']`);
-
-                if ($message.length) {
-                    let $readStatus = $message.find('.read-status');
-                    if ($readStatus.length === 0) {
-                        $readStatus = $("<div>").addClass("read-status");
-                        $message.append($readStatus);
-                    }
-
-                    if (readReceiptMessage.read_by && readReceiptMessage.read_by.length > 0) {
-                        const readByUsers = readReceiptMessage.read_by.map(user => {
-                            if ($message.hasClass('message-received') && user.user_id === userID) {
-                                return 'bạn';
-                            }
-                            return user.username || 'Unknown';
-                        });
-
-                        const readCount = readByUsers.length;
-                        const $icon = $("<i>").addClass("fas fa-check-double read-status-icon");
-                        const $text = $("<span>").addClass("read-status-text")
-                            .text(`Đã đọc ${readCount}`);
-                        
-                        // Add tooltip with reader names
-                        const $tooltip = $("<span>").addClass("read-status-tooltip")
-                            .text(`Đã đọc bởi: ${readByUsers.join(', ')}`);
-                        
-                        $text.append($tooltip);
-                        $readStatus.empty().append($icon).append($text);
-                    } else if (readReceiptMessage.reader_info) {
-                        let readerName = readReceiptMessage.reader_info.user_name || 'Unknown';
-                        if ($message.hasClass('message-received')) {
-                            readerName = 'bạn';
-                        }
-
-                        const $icon = $("<i>").addClass("fas fa-check-double read-status-icon");
-                        const $text = $("<span>").addClass("read-status-text")
-                            .text("Đã đọc 1");
-                        
-                        const $tooltip = $("<span>").addClass("read-status-tooltip")
-                            .text(`Đã đọc bởi: ${readerName}`);
-                        
-                        $text.append($tooltip);
-                        $readStatus.empty().append($icon).append($text);
-                    }
-                }
-            }
-
             // Xử lý kết nối lại
             function handleReconnect() {
                 if (reconnectAttempts < maxReconnectAttempts) {
@@ -1150,28 +1134,73 @@
                     .addClass("timestamp")
                     .text(formatted);
 
-                if (isSent && !message.is_delete) {
-                    // Thêm vùng chứa (container) với khu vực hover rộng hơn
-                    const $actionsContainer = $("<div>")
-                        .addClass("message-actions-container");
+                // Thêm khu vực hiển thị reaction cho tin nhắn
+                const $messageReactions = $("<div>")
+                    .addClass("message-reactions");
 
-                    // Thêm dropdown menu cho các hành động
-                    const $actions = $("<div>")
-                        .addClass("message-actions");
+                // Thêm các reaction đã có vào tin nhắn (nếu có)
+                if (message.reactions && Object.keys(message.reactions).length > 0) {
+                    for (const [reactType, users] of Object.entries(message.reactions)) {
+                        if (users.length > 0) {
+                            const $reactionCounter = $("<div>")
+                                .addClass("reaction-counter")
+                                .html(`${reactionEmojis[reactType]}<span>${users.length}</span>`);
+                            $messageReactions.append($reactionCounter);
+                        }
+                    }
+                }
 
-                    const $actionIcon = $("<button>")
-                        .addClass("message-action-btn")
-                        .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>')
-                        .on("click", function (e) {
-                            e.stopPropagation();
-                            // Đóng tất cả các dropdown khác trước khi mở dropdown hiện tại
-                            $(".message-dropdown").removeClass("show");
-                            $(this).next(".message-dropdown").toggleClass("show");
+                // Thêm message actions
+                const $actionsContainer = $("<div>")
+                    .addClass("message-actions-container");
+
+                // Thêm reaction bar (thanh emoji)
+                const $reactionBar = $("<div>")
+                    .addClass("reaction-bar");
+
+                // Thêm các emoji vào reaction bar
+                for (const [reactType, emoji] of Object.entries(reactionEmojis)) {
+                    const $reactionOption = $("<div>")
+                        .addClass("reaction-option")
+                        .text(emoji)
+                        .attr("data-react-type", reactType)
+                        .on("click", function () {
+                            const messageId = $(this).closest(".message").attr("data-id");
+                            const reactType = $(this).attr("data-react-type");
+                            reactToMessage(messageId, reactType);
+                            $reactionBar.removeClass("show");
                         });
+                    $reactionBar.append($reactionOption);
+                }
 
-                    const $dropdown = $("<div>")
-                        .addClass("message-dropdown");
+                // Thêm dropdown menu
+                const $actions = $("<div>")
+                    .addClass("message-actions");
 
+                const $actionIcon = $("<button>")
+                    .addClass("message-action-btn")
+                    .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>')
+                    .on("click", function (e) {
+                        e.stopPropagation();
+                        // Đóng tất cả các dropdown khác trước khi mở dropdown hiện tại
+                        $(".message-dropdown").removeClass("show");
+                        $(this).next(".message-dropdown").toggleClass("show");
+                    });
+
+                const $dropdown = $("<div>")
+                    .addClass("message-dropdown");
+
+                const $reactOption = $("<div>")
+                    .addClass("dropdown-option react-option")
+                    .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"></path></svg><span>Thả cảm xúc</span>')
+                    .on("click", function (e) {
+                        e.stopPropagation();
+                        $(".reaction-bar").removeClass("show");
+                        $(this).closest(".message-actions-container").find(".reaction-bar").addClass("show");
+                        $(this).closest(".message-dropdown").removeClass("show");
+                    });
+
+                if (isSent && !message.is_delete) {
                     const $recallOption = $("<div>")
                         .addClass("dropdown-option recall-option")
                         .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg><span>Thu hồi</span>')
@@ -1179,14 +1208,18 @@
                             recallMessage(message.id);
                             $(this).closest(".message-dropdown").removeClass("show");
                         });
-
                     $dropdown.append($recallOption);
-                    $actions.append($actionIcon).append($dropdown);
-                    $actionsContainer.append($actions);
-                    $message.append($actionsContainer);
                 }
 
-                $message.append($header).append($content).append($timestamp);
+                $dropdown.append($reactOption);
+                $actions.append($actionIcon).append($dropdown);
+                $actionsContainer.append($reactionBar).append($actions);
+
+                $message.append($header)
+                    .append($content)
+                    .append($messageReactions)
+                    .append($timestamp)
+                    .append($actionsContainer);
 
                 $("#chat-area").append($message)
                     .scrollTop($("#chat-area")[0].scrollHeight);
@@ -1196,9 +1229,12 @@
                     if (!$(e.target).closest(".message-actions").length) {
                         $(".message-dropdown").removeClass("show");
                     }
+
+                    if (!$(e.target).closest(".reaction-bar").length && !$(e.target).hasClass("react-option")) {
+                        $(".reaction-bar").removeClass("show");
+                    }
                 });
             }
-
             // Add date divider if needed
             function addDateDividerIfNeeded(dateStr) {
                 if (!dateStr) return;
@@ -1429,6 +1465,32 @@
                 $msgDiv.find('.message-content').text(newText);
             });
 
+            function reactToMessage(messageIds, reactType) {
+
+                if (!conn || conn.readyState !== WebSocket.OPEN) {
+                    console.log("WebSocket chưa kết nối, đang kết nối lại...");
+                    displaySystemMessage("Mất kết nối. Đang kết nối lại...");
+                    connectWebSocket();
+                    return;
+                }
+
+                try {
+                    conn.send(JSON.stringify({
+                        type: "react-message",
+                        sender_id: userID,
+                        group_id: groupID,
+                        id: messageIds,
+                        react_type: reactType
+                    }));
+                    missedHeartbeats = 0;
+                } catch (error) {
+                    console.error("Lỗi khi gửi tin nhắn:", error);
+                    displaySystemMessage("Không thể gửi tin nhắn. Vui lòng thử lại.");
+                    cleanupWebSocket();
+                    connectWebSocket();
+                }
+
+            }
 
             window.goBack = function () {
                 cleanupWebSocket();
