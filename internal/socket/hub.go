@@ -19,7 +19,6 @@ type Message struct {
 	Type       string    `json:"type"`
 	Token      string    `json:"token"`
 	MessageID  string    `json:"message_id"`
-	MessageIDs []string  `json:"message_ids"`
 	IsEdit     bool      `json:"is_edit"`
 	IsDelete   bool      `json:"is_delete"`
 	GroupID    string    `json:"group_id"`
@@ -77,17 +76,6 @@ type ReactMessage struct {
 	Timestamp  string    `json:"created_at"`
 }
 
-// type ReadReceiptMessage struct {
-// 	Type       string              `json:"type"`
-// 	MessageID  string              `json:"message_id"`
-// 	GroupID    string              `json:"group_id"`
-// 	SenderID   string              `json:"sender_id"`
-// 	SenderInfo *UserInfo           `json:"sender_infor,omitempty"`
-// 	ReadAt     string              `json:"read_at"`
-// 	ReadBy     []map[string]string `json:"read_by"`
-// 	Timestamp  string              `json:"created_at"`
-// }
-
 type OnlineUsersUpdate struct {
 	Type        string              `json:"type"`
 	GroupID     string              `json:"group_id"`
@@ -101,12 +89,6 @@ type UserInfo struct {
 	AvatarURL string    `json:"avatar_url"`
 	LastFetch time.Time `json:"-"`
 }
-
-// type MessageRead struct {
-// 	MessageID string            `json:"message_id"`
-// 	GroupID   string            `json:"group_id"`
-// 	ReadBy    map[string]string `json:"read_by"`
-// }
 
 type Hub struct {
 	rooms            map[string]map[*Client]bool
@@ -224,37 +206,6 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string) {
 	h.roomsMutex.RUnlock()
 }
 
-// func (h *Hub) handleJoinGroup(client *Client) {
-
-// 	messages, err := h.messageService.GetUnreadMessages(context.Background(), client.userID, client.groupID)
-// 	if err != nil {
-// 		log.Printf("Failed to get unread messages: %v", err)
-// 		return
-// 	}
-
-// 	if len(messages) > 0 {
-
-// 		unreadNotification := struct {
-// 			Type             string               `json:"type"`
-// 			Unread           int                  `json:"unread"`
-// 			UnreadMessageIds []primitive.ObjectID `json:"unread_message_ids"`
-// 			GroupID          string               `json:"group_id"`
-// 		}{
-// 			Type:             "unread_notification",
-// 			Unread:           len(messages),
-// 			UnreadMessageIds: messages,
-// 			GroupID:          client.groupID,
-// 		}
-
-// 		notificationBytes, err := json.Marshal(unreadNotification)
-// 		if err != nil {
-// 			log.Printf("Failed to marshal unread notification: %v", err)
-// 			return
-// 		}
-
-// 		client.send <- notificationBytes
-// 	}
-// }
 func (h *Hub) Run() {
 	for {
 		select {
@@ -342,10 +293,6 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 		h.deleteAndBroadcastMessage(msg)
 	case "react-message":
 		h.reactAndBroadcastMessage(msg)
-	// case "read-receipt":
-	// 	h.handleReadReceipt(msg)
-	// case "batch-read-receipt":
-	// 	h.handleBatchReadReceipt(msg)
 	}
 }
 
@@ -446,22 +393,55 @@ func (h *Hub) deleteAndBroadcastMessage(msg Message) {
 
 func (h *Hub) reactAndBroadcastMessage(msg Message) {
 
-	messageReact := ReactMessage{
-		ID:         msg.ID,
-		Type:       msg.Type,
-		GroupID:    msg.GroupID,
-		SenderID:   msg.SenderID,
-		SenderInfo: msg.SenderInfo,
-		ReactType:  msg.ReactType,
-		Timestamp:  msg.Timestamp,
-	}
-	
 	go func() {
-		if err := h.messageService.InsertMessageReact(context.Background(), msg.ID, msg.GroupID, msg.SenderID, msg.ReactType); err != nil {
-			log.Printf("Error react message: %v", err)
+		ctx := context.Background()
+
+		err := h.messageService.InsertMessageReact(ctx, msg.ID, msg.GroupID, msg.SenderID, msg.ReactType)
+		if err != nil {
+			log.Printf("Error inserting message react: %v", err)
+			return 
 		}
-		updatedMessage, _ := json.Marshal(messageReact)
+
+		reacts, err := h.messageService.GetMessageReacts(ctx, msg.ID, msg.GroupID)
+		if err != nil {
+			log.Printf("Error getting message reacts: %v", err)
+			return 
+		}
+		
+		var totalAllReacts int64 = 0
+
+		for _, react := range reacts {
+			totalAllReacts += react.TotalReact
+			for i, ur := range react.UserReact {
+				if ur.UserInfor == nil {
+					user, err := h.userService.GetUserInfor(ur.UserID)
+					if err != nil {
+						log.Printf("Error getting user info: %v", err)
+						continue
+					}
+					react.UserReact[i].UserInfor = &models.UserInfor{
+						UserID:   user.UserID,
+						UserName: user.UserName,
+						Avartar:  user.Avartar,
+					}
+				}
+			}
+		}
+
+		res := map[string]interface{} {
+			"type": "react-message",
+			"message_id": msg.ID,
+			"group_id": msg.GroupID,
+			"sender_id": msg.SenderID,
+			"sender_info": msg.SenderInfo,
+			"react_type": msg.ReactType,
+			"reacts": reacts,
+			"total_all_reacts": totalAllReacts,
+		}
+
+		updatedMessage, _ := json.Marshal(res)
 		h.sendToGroup(msg.GroupID, updatedMessage)
+
 	}()
 
 }
@@ -479,98 +459,3 @@ func (h *Hub) sendToGroup(groupID string, message []byte) {
 		}
 	}
 }
-
-
-
-// func (h *Hub) handleReadReceipt(msg Message) {
-// 	// Kiểm tra kiểu tin nhắn
-// 	if msg.Type != "read-receipt" {
-// 		return
-// 	}
-
-// 	go func() {
-// 		// Đánh dấu tin nhắn đã được đọc
-// 		if err := h.messageService.MarkAsRead(context.Background(), msg.MessageID, msg.ReaderID, msg.SenderID, msg.GroupID); err != nil {
-// 			log.Printf("Error marking message as read: %v", err)
-// 			return
-// 		}
-
-// 		// Lấy thông tin của người đọc
-// 		userInfor, err := h.userService.GetUserInfor(msg.SenderID)
-// 		if err != nil {
-// 			log.Printf("Error getting user info: %v", err)
-// 			return
-// 		}
-
-// 		userInfo := &UserInfo{
-// 			UserID:    userInfor.UserID,
-// 			Username:  userInfor.UserName,
-// 			AvatarURL: userInfor.Avartar,
-// 		}
-
-// 		// Lấy trạng thái đọc của tin nhắn một lần duy nhất
-// 		readStatus, err := h.messageService.GetMessageReadStatus(context.Background(), []string{msg.MessageID}, msg.GroupID)
-// 		if err != nil {
-// 			log.Printf("Error getting message read status: %v", err)
-// 			return
-// 		}
-
-// 		var readBy []map[string]string
-
-// 		// Xử lý tất cả các thông tin "đã đọc" một lần
-// 		if receipts, ok := readStatus[msg.MessageID]; ok {
-// 			for _, receipt := range receipts {
-// 				userReadInfor, err := h.getUserInfo(receipt.UserID)
-// 				if err != nil {
-// 					log.Printf("Error getting user info for ID %s: %v", receipt.UserID, err)
-// 					continue // Bỏ qua người dùng này nhưng vẫn tiếp tục với người khác
-// 				}
-
-// 				readBy = append(readBy, map[string]string{
-// 					"user_id":    receipt.UserID,
-// 					"read_at":    receipt.ReadAt.Format(time.RFC3339),
-// 					"username":   userReadInfor.Username,
-// 					"avatar_url": userReadInfor.AvatarURL,
-// 				})
-// 			}
-// 		}
-
-// 		// Tạo một thông báo duy nhất chứa tất cả thông tin
-// 		readReceipt := ReadReceiptMessage{
-// 			Type:       msg.Type,
-// 			MessageID:  msg.MessageID,
-// 			GroupID:    msg.GroupID,
-// 			SenderID:   msg.SenderID,
-// 			SenderInfo: userInfo,
-// 			ReadAt:     time.Now().Format(time.RFC3339),
-// 			ReadBy:     readBy, // Bao gồm tất cả người đã đọc
-// 			Timestamp:  time.Now().Format(time.RFC3339),
-// 		}
-
-// 		readReceiptBytes, err := json.Marshal(readReceipt)
-// 		if err != nil {
-// 			log.Printf("Error marshaling read receipt: %v", err)
-// 			return
-// 		}
-
-// 		// Gửi một thông báo duy nhất cho cả nhóm
-// 		h.sendToGroup(msg.GroupID, readReceiptBytes)
-// 	}()
-// }
-
-// func (h *Hub) handleBatchReadReceipt(msg Message) {
-
-// 	for _, message := range msg.MessageIDs {
-
-// 		readReceipt := Message{
-// 			Type:      "read-receipt",
-// 			MessageID: message,
-// 			GroupID:   msg.GroupID,
-// 			ReaderID:  msg.SenderID,
-// 			SenderID:  "",
-// 		}
-
-// 		h.handleReadReceipt(readReceipt)
-// 	}
-
-// }

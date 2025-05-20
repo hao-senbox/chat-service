@@ -13,8 +13,13 @@ type MessageReact struct {
 	UserID     string             `bson:"user_id" json:"user_id"`
 	React      string             `bson:"react" json:"react"`
 	TotalReact int64              `bson:"total_react" json:"total_react"`
-	CreatedAt  time.Time          `bson:"created_at" json:"created_at"`
-	UpdateAt   time.Time          `bson:"update_at" json:"update_at"`
+	UserReact  []UserReact           `bson:"user_reacts" json:"user_reacts"`
+}
+
+type UserReact struct {
+	UserID string `bson:"user_id" json:"user_id"`
+	UserInfor *UserInfor `bson:"user_infor" json:"user_infor"`
+	Count  int    `bson:"count" json:"count"`
 }
 
 type MessageReactResponse struct {

@@ -20,16 +20,17 @@ type Message struct {
 }
 
 type MessageWithUser struct {
-	ID          string       `json:"id"`
-	SenderID    string       `json:"sender_id"`
-	Content     string       `json:"content"`
-	IsEdit      bool         `json:"is_edit"`
-	ContenType  string       `json:"content_type"`
-	ImageKey    string       `json:"image_key,omitempty"`
-	IsDelete    bool         `json:"is_delete"`
-	CreatedAt   time.Time    `json:"created_at"`
-	SenderInfor *UserInfor   `json:"sender_infor"`
-	ReadBy      []*UserInfor `json:"read_by"`
+	ID          string          `json:"id"`
+	SenderID    string          `json:"sender_id"`
+	Content     string          `json:"content"`
+	IsEdit      bool            `json:"is_edit"`
+	ContenType  string          `json:"content_type"`
+	ImageKey    string          `json:"image_key,omitempty"`
+	IsDelete    bool            `json:"is_delete"`
+	CreatedAt   time.Time       `json:"created_at"`
+	SenderInfor *UserInfor      `json:"sender_infor"`
+	ReadBy      []*UserInfor    `json:"read_by"`
+	Reacts      []*MessageReact `json:"reacts,omitempty"`
 }
 
 type UserInfor struct {

@@ -3,14 +3,17 @@ package repository
 import (
 	"chat-service/internal/models"
 	"context"
+	"fmt"
+	"time"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"time"
 )
 
 type MessageReactRepository interface {
 	InsertMessageReact(ctx context.Context, reactMessage *models.MessageReact) error
+	GetMessageReact(ctx context.Context, messageID primitive.ObjectID, groupID primitive.ObjectID) ([]*models.MessageReact, error)
 }
 
 type messageReactRepository struct {
@@ -21,6 +24,24 @@ func NewMessageReactRepository(collection *mongo.Collection) MessageReactReposit
 	return &messageReactRepository{
 		collection: collection,
 	}
+}
+
+func (r *messageReactRepository) GetMessageReact(ctx context.Context, messageID primitive.ObjectID, groupID primitive.ObjectID) ([]*models.MessageReact, error) {
+	
+	var messageReacts []*models.MessageReact
+	filter := bson.M{"message_id": messageID, "group_id": groupID}
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	for cursor.Next(ctx) {
+		var messageReact models.MessageReact
+		if err := cursor.Decode(&messageReact); err != nil {
+			return nil, err
+		}
+		messageReacts = append(messageReacts, &messageReact)
+	}
+	return messageReacts, nil
 }
 
 func (r *messageReactRepository) InsertMessageReact(ctx context.Context, reacMessage *models.MessageReact) error {
@@ -65,15 +86,7 @@ func (r *messageReactRepository) InsertMessageReact(ctx context.Context, reacMes
 	}
 
 	if found {
-		update := bson.M{
-			"$inc": bson.M{
-				"total_react":         1,
-				"user_reacts.$.count": 1,
-			},
-		}
-		filter["user_reacts.user_id"] = reacMessage.UserID
-		_, err := r.collection.UpdateOne(ctx, filter, update)
-		return err
+		return fmt.Errorf("user has already reacted")
 	} else {
 		update := bson.M{
 			"$inc": bson.M{"total_react": 1},

@@ -112,3 +112,18 @@ func (h *ChatHandlers) GetUserInformation(c *gin.Context) {
 
 	SendSuccess(c, http.StatusOK, "Get user information successfully", user)
 }
+
+func (h *ChatHandlers) GetReactMessages(c *gin.Context) {
+
+	messageID := c.Param("message_id")
+	groupID := c.Param("group_id")
+	
+
+	messages, err := h.chatService.GetMessageReacts(c, messageID, groupID)	
+	if err != nil {
+		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
+		return
+	}
+
+	SendSuccess(c, http.StatusOK, "Get react messages successfully", messages)
+}

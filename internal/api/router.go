@@ -21,6 +21,7 @@ func RegisterChatRouters(r *gin.Engine, chatService service.ChatService) {
 		chatGroup.GET("/check/:user_id/:group_id", handlers.IsUserInGroup)
 		chatGroup.GET("/download/:group_id", handlers.DownloadGroupMessages)
 		chatGroup.GET("/information/user/:user_id", handlers.GetUserInformation)
+		chatGroup.GET("/react/:group_id/:message_id", handlers.GetReactMessages)
 	}
 }
 

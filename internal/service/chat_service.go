@@ -26,9 +26,9 @@ type ChatService interface {
 	DeleteMessageByGroupID(ctx context.Context, groupID string, token string) error
 	MarkAsRead(ctx context.Context, messageID string, userID string, senderID string, groupID string) error
 	InsertMessageReact(ctx context.Context, messageID, groupID, userID, reactType string) error
-	// GetMessageReadStatus(ctx context.Context, messageIDs []string, groupID string) (map[string][]models.ReadReceipt, error)
-	// GetUnreadMessages(ctx context.Context, userID string, groupID string) ([]primitive.ObjectID, error)
+	GetMessageReacts(ctx context.Context, messageID, groupID string) ([]*models.MessageReact, error)
 }
+
 type chatService struct {
 	messagesRepository      repository.MessagesRepository
 	messagesReadRepository  repository.ReadMessageRepository
@@ -55,6 +55,26 @@ func NewChatService(client *api.Client,
 	}
 }
 
+func (s *chatService) GetMessageReacts(ctx context.Context, messageID, groupID string) ([]*models.MessageReact, error) {
+
+	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	objectMessageID, err := primitive.ObjectIDFromHex(messageID)
+	if err != nil {
+		return nil, err
+	}
+
+	messages, err := s.messagesReactRepository.GetMessageReact(ctx, objectMessageID, objectGroupID)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return messages, nil
+}
 func (s *chatService) InsertMessageReact(ctx context.Context, messageID, groupID, userID, reactType string) error {
 
 	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
@@ -72,8 +92,6 @@ func (s *chatService) InsertMessageReact(ctx context.Context, messageID, groupID
 		GroupID:   objectGroupID,
 		UserID:    userID,
 		React:     reactType,
-		CreatedAt: time.Now(),
-		UpdateAt:  time.Now(),
 	}
 
 	err = s.messagesReactRepository.InsertMessageReact(ctx, messagesReact)
@@ -81,7 +99,7 @@ func (s *chatService) InsertMessageReact(ctx context.Context, messageID, groupID
 		return err
 	}
 
-	return nil 
+	return nil
 }
 
 func (s *chatService) MarkAsRead(ctx context.Context, messageID string, userID string, senderID string, groupID string) error {
@@ -98,31 +116,6 @@ func (s *chatService) MarkAsRead(ctx context.Context, messageID string, userID s
 
 	return s.messagesReadRepository.MarkAsRead(ctx, objectMessageID, userID, senderID, objectGroupID)
 }
-
-// func (s *chatService) GetMessageReadStatus(ctx context.Context, messageIDs []string, groupID string) (map[string][]models.ReadReceipt, error) {
-
-// 	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return s.messagesReadRepository.GetReadStatus(ctx, messageIDs, objectGroupID)
-// }
-
-// func (s *chatService) GetUnreadMessages(ctx context.Context, userID string, groupID string) ([]primitive.ObjectID, error) {
-
-// 	objectGroupID, err := primitive.ObjectIDFromHex(groupID)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	messageIds, err := s.messagesReadRepository.GetUnreadMessages(ctx, userID, objectGroupID)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return messageIds, nil
-// }
 
 func (s *chatService) EditMessage(ctx context.Context, message *models.EditMessage) error {
 	return s.messagesRepository.EditMessage(ctx, message)
@@ -162,7 +155,6 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 		if cached, ok := userCache[msg.SenderID]; ok {
 			userInfo = cached
 		} else {
-			fmt.Printf("Fetching user info for %s\n", msg.SenderID)
 			fetchedInfo, err := s.userService.GetUserInfor(msg.SenderID)
 			if err != nil {
 				fmt.Printf("Failed to get user info for %s: %v\n", msg.SenderID, err)
@@ -176,6 +168,33 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 			userCache[msg.SenderID] = userInfo
 		}
 
+		reacts, err := s.messagesReactRepository.GetMessageReact(ctx, msg.ID, objectID)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, react := range reacts {
+			for i := range react.UserReact {
+				userID := react.UserReact[i].UserID
+
+				if cached, ok := userCache[userID]; ok {
+					react.UserReact[i].UserInfor = cached
+				} else {
+					fetchedInfo, err := s.userService.GetUserInfor(userID)
+					if err != nil {
+						fmt.Printf("Failed to get user info for %s: %v\n", userID, err)
+						fetchedInfo = &models.UserInfor{}
+					}
+					react.UserReact[i].UserInfor = &models.UserInfor{
+						UserID:   fetchedInfo.UserID,
+						UserName: fetchedInfo.UserName,
+						Avartar:  fetchedInfo.Avartar,
+					}
+					userCache[userID] = react.UserReact[i].UserInfor
+				}
+			}
+		}
+
 		enrichedMessages = append(enrichedMessages, &models.MessageWithUser{
 			ID:          msg.ID.Hex(),
 			SenderID:    msg.SenderID,
@@ -186,36 +205,9 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 			ImageKey:    msg.ImageKey,
 			CreatedAt:   msg.CreatedAt,
 			SenderInfor: userInfo,
+			Reacts:      reacts,
 		})
 
-		// readByUserIDs, err := s.messagesReadRepository.GetReadByUserIDs(ctx, msg.ID, objectID)
-		// if err != nil {
-		// 	return nil, err
-		// }
-
-		// var readBy []*models.UserInfor
-		// for _, userID := range readByUserIDs {
-		// 	var userInfo *models.UserInfor
-		// 	if cached, ok := userCache[userID]; ok {
-		// 		userInfo = cached
-		// 	} else {
-		// 		fmt.Printf("Fetching user info for read_by: %s\n", userID)
-		// 		fetchedInfo, err := s.userService.GetUserInfor(userID)
-		// 		if err != nil {
-		// 			fmt.Printf("Failed to get user info for read_by %s: %v\n", userID, err)
-		// 			fetchedInfo = &models.UserInfor{}
-		// 		}
-		// 		userInfo = &models.UserInfor{
-		// 			UserID:   fetchedInfo.UserID,
-		// 			UserName: fetchedInfo.UserName,
-		// 			Avartar:  fetchedInfo.Avartar,
-		// 		}
-		// 		userCache[userID] = userInfo
-		// 	}
-		// 	readBy = append(readBy, userInfo)
-		// }
-
-		// enrichedMessages[len(enrichedMessages)-1].ReadBy = readBy
 	}
 
 	return enrichedMessages, nil
