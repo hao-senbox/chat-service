@@ -1370,8 +1370,8 @@
                     dataType: "json",
                     success: function (data) {
                         $("#chat-area").empty();
-                        if (data.data && data.data.length > 0) {
-                            data.data.forEach(message => {
+                        if (data.data.data && data.data.data.length > 0) {
+                            data.data.data.slice().reverse().forEach(message => {
                                 displayMessage(message);
                             });
                         } else {

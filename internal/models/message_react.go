@@ -13,13 +13,13 @@ type MessageReact struct {
 	UserID     string             `bson:"user_id" json:"user_id"`
 	React      string             `bson:"react" json:"react"`
 	TotalReact int64              `bson:"total_react" json:"total_react"`
-	UserReact  []UserReact           `bson:"user_reacts" json:"user_reacts"`
+	UserReact  []UserReact        `bson:"user_reacts" json:"user_reacts"`
 }
 
 type UserReact struct {
-	UserID string `bson:"user_id" json:"user_id"`
+	UserID    string     `bson:"user_id" json:"user_id"`
 	UserInfor *UserInfor `bson:"user_infor" json:"user_infor"`
-	Count  int    `bson:"count" json:"count"`
+	Count     int        `bson:"count" json:"count"`
 }
 
 type MessageReactResponse struct {

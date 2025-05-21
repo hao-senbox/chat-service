@@ -9,13 +9,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type MessagesRepository interface {
 	SaveMessage(ctx context.Context, message *models.Message) (primitive.ObjectID, error)
 	EditMessage(ctx context.Context, message *models.EditMessage) error
 	IsUserInGroup(ctx context.Context, userID string, groupID primitive.ObjectID) (bool, error)
-	GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID, from *time.Time, to *time.Time) ([]*models.Message, error)
+	GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID, from *time.Time, to *time.Time, pagination *models.Panigination) ([]*models.Message, int64, error)
     DeleteMessage(ctx context.Context, messageID primitive.ObjectID) error
     CountKeywordMessage(ctx context.Context, keyword string, groupID primitive.ObjectID) (int, []string, error)
     MessageDetail(ctx context.Context, messageID primitive.ObjectID) (*models.Message, error)
@@ -92,7 +93,7 @@ func (r *messagesRepository) EditMessage(ctx context.Context, message *models.Ed
 	return nil
 }
 
-func (r *messagesRepository) GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID, from *time.Time, to *time.Time) ([]*models.Message, error) {
+func (r *messagesRepository) GetMessagesByGroupID(ctx context.Context, groupID primitive.ObjectID, from *time.Time, to *time.Time, pagination *models.Panigination) ([]*models.Message, int64, error) {
 
 	filter := bson.M{
 		"group_id": groupID,
@@ -109,22 +110,29 @@ func (r *messagesRepository) GetMessagesByGroupID(ctx context.Context, groupID p
 		filter["created_at"] = timeFilter
 	}
 
-	fmt.Printf("filter: %+v\n", filter)
-
-	fmt.Printf("from %v to %v\n", from, to)
-
-	cur, err := r.collection.Find(ctx, filter)
+	totalItems, err := r.collection.CountDocuments(ctx, filter)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	skip := (pagination.Page - 1) * pagination.Limit
+	opts := options.Find().
+		SetSkip(int64(skip)).
+		SetLimit(int64(pagination.Limit)).
+		SetSort(bson.D{{Key: "created_at", Value: -1}})
+
+	cur, err := r.collection.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer cur.Close(ctx)
 
 	var messages []*models.Message
 	if err := cur.All(ctx, &messages); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return messages, nil
+	return messages, totalItems, nil
 }
 
 

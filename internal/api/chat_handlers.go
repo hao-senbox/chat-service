@@ -4,6 +4,7 @@ import (
 	"chat-service/internal/models"
 	"chat-service/internal/service"
 	"fmt"
+	"math"
 	"net/http"
 	"time"
 
@@ -21,6 +22,24 @@ func NewChatService(chatService service.ChatService) *ChatHandlers {
 }
 
 func (h *ChatHandlers) GetGroupMessages(c *gin.Context) {
+
+	var req models.Panigination
+
+	if err := c.ShouldBindQuery(&req); err != nil {
+		SendError(c, http.StatusBadRequest, err, models.ErrInvalidRequest)
+		return
+	}
+
+	fmt.Printf("Page: %d, Limit: %d\n", req.Page, req.Limit)
+
+	if req.Page == 0 {
+		req.Page = 1
+	}
+
+	if req.Limit == 0 {
+		req.Limit = 30
+	}
+
 	groupID := c.Param("group_id")
 
 	if groupID == "" {
@@ -28,13 +47,23 @@ func (h *ChatHandlers) GetGroupMessages(c *gin.Context) {
 		return
 	}
 
-	messages, err := h.chatService.GetGroupMessages(c, groupID, nil, nil)
+	messages, totalItems, err := h.chatService.GetGroupMessages(c, groupID, nil, nil, &req)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return
 	}
 
-	SendSuccess(c, http.StatusOK, "Get group messages successfully", messages)
+	totalPages := int(math.Ceil(float64(totalItems) / float64(req.Limit)))
+
+	data := models.PaniginationResponse {
+		TotalItems: totalItems,
+		TotalPages: totalPages,
+		Limit: req.Limit,
+		Page:  req.Page,
+		Data:  messages,
+	}
+
+	SendSuccess(c, http.StatusOK, "Get group messages successfully", data)
 }
 
 func (h *ChatHandlers) IsUserInGroup(c *gin.Context) {

@@ -45,6 +45,14 @@ type QrCodeData struct {
 	ExpiryTime time.Time          `json:"expiry_time"`
 }
 
+type PaniginationResponse struct {
+	TotalItems int64 `json:"total"`
+	TotalPages int   `json:"total_pages"`
+	Limit int `json:"limit"`
+	Page  int `json:"page"`
+	Data  interface{} `json:"data"`
+}
+
 const (
 	ErrInvalidOperation = "ERR_INVALID_OPERATION"
 	ErrInvalidRequest   = "ERR_INVALID_REQUEST"
