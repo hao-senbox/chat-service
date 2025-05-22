@@ -3,7 +3,6 @@ package repository
 import (
 	"chat-service/internal/models"
 	"context"
-	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -86,7 +85,14 @@ func (r *messageReactRepository) InsertMessageReact(ctx context.Context, reacMes
 	}
 
 	if found {
-		return fmt.Errorf("user has already reacted")
+		update := bson.M{
+			"$inc": bson.M{"total_react": -1},
+			"$pull": bson.M{"user_reacts": bson.M{
+				"user_id": reacMessage.UserID,
+			}},
+		}
+		_, err := r.collection.UpdateOne(ctx, filter, update)
+		return err
 	} else {
 		update := bson.M{
 			"$inc": bson.M{"total_react": 1},

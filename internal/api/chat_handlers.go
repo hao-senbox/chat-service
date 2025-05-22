@@ -7,7 +7,6 @@ import (
 	"math"
 	"net/http"
 	"time"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -55,12 +54,12 @@ func (h *ChatHandlers) GetGroupMessages(c *gin.Context) {
 
 	totalPages := int(math.Ceil(float64(totalItems) / float64(req.Limit)))
 
-	data := models.PaniginationResponse {
+	data := models.PaniginationResponse{
 		TotalItems: totalItems,
 		TotalPages: totalPages,
-		Limit: req.Limit,
-		Page:  req.Page,
-		Data:  messages,
+		Limit:      req.Limit,
+		Page:       req.Page,
+		Data:       messages,
 	}
 
 	SendSuccess(c, http.StatusOK, "Get group messages successfully", data)
@@ -86,9 +85,9 @@ func (h *ChatHandlers) IsUserInGroup(c *gin.Context) {
 }
 
 func (h *ChatHandlers) DownloadGroupMessages(c *gin.Context) {
-	
+
 	var fromTime, toTime *time.Time
-	
+
 	fromStr := c.Query("from")
 	if fromStr != "" {
 		t, err := time.Parse(time.RFC3339, fromStr)
@@ -108,7 +107,6 @@ func (h *ChatHandlers) DownloadGroupMessages(c *gin.Context) {
 		}
 		toTime = &t
 	}
-
 
 	groupID := c.Param("group_id")
 
@@ -146,9 +144,8 @@ func (h *ChatHandlers) GetReactMessages(c *gin.Context) {
 
 	messageID := c.Param("message_id")
 	groupID := c.Param("group_id")
-	
 
-	messages, err := h.chatService.GetMessageReacts(c, messageID, groupID)	
+	messages, err := h.chatService.GetMessageReacts(c, messageID, groupID)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return
