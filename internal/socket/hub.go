@@ -100,6 +100,7 @@ type Hub struct {
 	unregister       chan *Client
 	messageService   service.ChatService
 	userOnlineRepo   repository.UserOnlineRepository
+	groupService     service.GroupService
 
 	userCache      map[string]*UserInfo
 	userCacheMutex sync.RWMutex
@@ -107,7 +108,7 @@ type Hub struct {
 	userService    service.UserService
 }
 
-func NewHub(messageService service.ChatService, userService service.UserService, userOnlineRepo repository.UserOnlineRepository) *Hub {
+func NewHub(messageService service.ChatService, userService service.UserService, userOnlineRepo repository.UserOnlineRepository, groupServie service.GroupService) *Hub {
 	return &Hub{
 		broadcast:        make(chan []byte, 256),
 		register:         make(chan *Client, 10),
@@ -118,6 +119,7 @@ func NewHub(messageService service.ChatService, userService service.UserService,
 		onlineUsersMutex: sync.RWMutex{},
 		messageService:   messageService,
 		userOnlineRepo:   userOnlineRepo,
+		groupService:     groupServie,
 
 		userCache:      make(map[string]*UserInfo),
 		userCacheMutex: sync.RWMutex{},
@@ -402,6 +404,14 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 			return 
 		}
 
+		groupDetail, err := h.groupService.GetGroupDetail(ctx, msg.GroupID)
+		if err != nil {
+			log.Printf("Error getting group detail: %v", err)
+			return 
+		}
+
+
+
 		reacts, err := h.messageService.GetMessageReacts(ctx, msg.ID, msg.GroupID)
 		if err != nil {
 			log.Printf("Error getting message reacts: %v", err)
@@ -409,10 +419,12 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 		}
 		
 		var totalAllReacts int64 = 0
+		reactedsUserIDs := make(map[string]bool)
 
 		for _, react := range reacts {
 			totalAllReacts += react.TotalReact
 			for i, ur := range react.UserReact {
+				reactedsUserIDs[ur.UserID] = true
 				if ur.UserInfor == nil {
 					user, err := h.userService.GetUserInfor(ur.UserID)
 					if err != nil {
@@ -428,6 +440,35 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 			}
 		}
 
+		var notReactedMembers []map[string]interface{}
+		var ReactedMembers []map[string]interface{}
+
+		for _, member := range groupDetail.Members{
+			
+			memberInfo := map[string]interface{}{
+				"user_id": member.GroupMember.UserID,
+				"user_name": member.GroupMember.UserInfor.UserName,
+				"avatar_url": member.GroupMember.UserInfor.Avartar,
+			}
+
+			if reactedsUserIDs[member.GroupMember.UserID] {
+				var userReactions []string	
+				for _, react := range reacts {
+					for _, ur :=range react.UserReact {
+						if ur.UserID == member.GroupMember.UserID {
+							userReactions = append(userReactions, react.React)
+						}
+					}
+				}
+				memberInfo["reacts"] = userReactions
+				ReactedMembers = append(ReactedMembers, memberInfo)
+			} else {
+				notReactedMembers = append(notReactedMembers, memberInfo)
+			}
+
+		}
+		 
+
 		res := map[string]interface{} {
 			"type": "react-message",
 			"message_id": msg.ID,
@@ -437,6 +478,8 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 			"react_type": msg.ReactType,
 			"reacts": reacts,
 			"total_all_reacts": totalAllReacts,
+			"reacted_members": ReactedMembers,
+			"not_reacted_members": notReactedMembers,
 		}
 
 		updatedMessage, _ := json.Marshal(res)

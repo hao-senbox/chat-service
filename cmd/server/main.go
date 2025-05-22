@@ -76,7 +76,7 @@ func main() {
 	groupService.SetMessageService(messageService)
 	groupRepository.SetGroupMemberRepo(groupMemberRepository)
 
-	hub := socket.NewHub(messageService, userService, userOnlineRepository)
+	hub := socket.NewHub(messageService, userService, userOnlineRepository, groupService)
 	go hub.Run()
 	// Set up router with Gin
 	router := gin.Default()
