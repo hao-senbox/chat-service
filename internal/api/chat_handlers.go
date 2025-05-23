@@ -29,8 +29,6 @@ func (h *ChatHandlers) GetGroupMessages(c *gin.Context) {
 		return
 	}
 
-	fmt.Printf("Page: %d, Limit: %d\n", req.Page, req.Limit)
-
 	if req.Page == 0 {
 		req.Page = 1
 	}

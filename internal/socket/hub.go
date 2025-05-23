@@ -13,7 +13,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-
 type Message struct {
 	ID         string    `json:"id"`
 	Type       string    `json:"type"`
@@ -31,65 +30,18 @@ type Message struct {
 	ImageKey   string    `json:"image_key,omitempty"`
 	Timestamp  string    `json:"created_at"`
 }
-
-type MessageChat struct {
-	ID         string    `json:"id"`
-	Type       string    `json:"type"`
-	GroupID    string    `json:"group_id"`
-	SenderID   string    `json:"sender_id"`
-	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
-	Content    string    `json:"content"`
-	ContenType string    `json:"content_type"`
-	ImageKey   string    `json:"image_key,omitempty"`
-	Timestamp  string    `json:"created_at"`
-}
-
-type EditMessage struct {
-	ID         string    `json:"id"`
-	Type       string    `json:"type"`
-	IsEdit     bool      `json:"is_edit"`
-	GroupID    string    `json:"group_id"`
-	SenderID   string    `json:"sender_id"`
-	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
-	Content    string    `json:"content"`
-	Timestamp  string    `json:"created_at"`
-}
-
-type DeleteMessage struct {
-	ID         string    `json:"id"`
-	Type       string    `json:"type"`
-	IsDelete   bool      `json:"is_delete"`
-	GroupID    string    `json:"group_id"`
-	SenderID   string    `json:"sender_id"`
-	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
-	Content    string    `json:"content"`
-	Timestamp  string    `json:"created_at"`
-}
-
-type ReactMessage struct {
-	ID         string    `json:"id"`
-	Type       string    `json:"type"`
-	GroupID    string    `json:"group_id"`
-	SenderID   string    `json:"sender_id"`
-	SenderInfo *UserInfo `json:"sender_infor,omitempty"`
-	ReactType  string    `json:"react_type"`
-	Timestamp  string    `json:"created_at"`
-}
-
 type OnlineUsersUpdate struct {
 	Type        string              `json:"type"`
 	GroupID     string              `json:"group_id"`
 	OnlineCount int                 `json:"online_count"`
 	OnlineUsers []*models.UserInfor `json:"online_users"`
 }
-
 type UserInfo struct {
 	UserID    string    `json:"user_id"`
 	Username  string    `json:"user_name"`
 	AvatarURL string    `json:"avatar_url"`
 	LastFetch time.Time `json:"-"`
 }
-
 type Hub struct {
 	rooms            map[string]map[*Client]bool
 	roomsMutex       sync.RWMutex
@@ -107,7 +59,6 @@ type Hub struct {
 	userCacheTTL   time.Duration
 	userService    service.UserService
 }
-
 func NewHub(messageService service.ChatService, userService service.UserService, userOnlineRepo repository.UserOnlineRepository, groupServie service.GroupService) *Hub {
 	return &Hub{
 		broadcast:        make(chan []byte, 256),
@@ -127,7 +78,6 @@ func NewHub(messageService service.ChatService, userService service.UserService,
 		userService:    userService,
 	}
 }
-
 func (h *Hub) getUserInfo(userID string) (*UserInfo, error) {
 	h.userCacheMutex.RLock()
 	if userInfo, ok := h.userCache[userID]; ok {
@@ -157,7 +107,6 @@ func (h *Hub) getUserInfo(userID string) (*UserInfo, error) {
 
 	return h.userCache[userID], nil
 }
-
 func (h *Hub) broadcastOnlineUsersUpdate(groupID string) {
 	h.onlineUsersMutex.RLock()
 	defer h.onlineUsersMutex.RUnlock()
@@ -207,7 +156,6 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string) {
 	}
 	h.roomsMutex.RUnlock()
 }
-
 func (h *Hub) Run() {
 	for {
 		select {
@@ -228,7 +176,6 @@ func (h *Hub) Run() {
 
 			log.Printf("Client %s connected to group %s", client.userID, client.groupID)
 
-			// Prefetch user info để tránh trễ lần sau
 			go func(uid string) {
 				_, _ = h.getUserInfo(uid)
 			}(client.userID)
@@ -271,7 +218,6 @@ func (h *Hub) Run() {
 		}
 	}
 }
-
 func (h *Hub) handleBroadcastMessage(message []byte) {
 	var msg Message
 	if err := json.Unmarshal(message, &msg); err != nil {
@@ -297,7 +243,6 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 		h.reactAndBroadcastMessage(msg)
 	}
 }
-
 func (h *Hub) saveAndBroadcastMessage(msg Message) {
 	groupID, err := primitive.ObjectIDFromHex(msg.GroupID)
 	if err != nil {
@@ -316,15 +261,15 @@ func (h *Hub) saveAndBroadcastMessage(msg Message) {
 		CreatedAt:  time.Now(),
 	}
 
-	messageChat := MessageChat{
-		Type:       msg.Type,
-		GroupID:    msg.GroupID,
-		SenderID:   msg.SenderID,
-		SenderInfo: msg.SenderInfo,
-		Content:    msg.Content,
-		ContenType: msg.ContenType,
-		ImageKey:   msg.ImageKey,
-		Timestamp:  msg.Timestamp,
+	res := map[string]interface{}{
+		"type":         msg.Type,
+		"group_id":     msg.GroupID,
+		"sender_id":    msg.SenderID,
+		"sender_infor": msg.SenderInfo,
+		"content":      msg.Content,
+		"content_type": msg.ContenType,
+		"image_key":    msg.ImageKey,
+		"created_at":   msg.Timestamp,
 	}
 
 	go func() {
@@ -333,12 +278,11 @@ func (h *Hub) saveAndBroadcastMessage(msg Message) {
 			log.Printf("Error saving message: %v", err)
 			return
 		}
-		messageChat.ID = id.Hex()
-		updatedMessage, _ := json.Marshal(messageChat)
+		res["id"] = id.Hex()
+		updatedMessage, _ := json.Marshal(res)
 		h.sendToGroup(msg.GroupID, updatedMessage)
 	}()
 }
-
 func (h *Hub) editAndBroadcastMessage(msg Message) {
 
 	dbMsg := models.EditMessage{
@@ -347,26 +291,25 @@ func (h *Hub) editAndBroadcastMessage(msg Message) {
 		UpdateAt: time.Now(),
 	}
 
-	editMessage := EditMessage{
-		ID:         msg.ID,
-		Type:       msg.Type,
-		IsEdit:     true,
-		GroupID:    msg.GroupID,
-		SenderID:   msg.SenderID,
-		SenderInfo: msg.SenderInfo,
-		Content:    msg.Content,
-		Timestamp:  msg.Timestamp,
+	res := map[string]interface{}{
+		"id":           msg.ID,
+		"type":         msg.Type,
+		"group_id":     msg.GroupID,
+		"is_edit":      true,
+		"sender_id":    msg.SenderID,
+		"sender_infor": msg.SenderInfo,
+		"content":      msg.Content,
+		"created_at":   msg.Timestamp,
 	}
 
 	go func() {
 		if err := h.messageService.EditMessage(context.Background(), &dbMsg); err != nil {
 			log.Printf("Error editing message: %v", err)
 		}
-		updatedMessage, _ := json.Marshal(editMessage)
+		updatedMessage, _ := json.Marshal(res)
 		h.sendToGroup(msg.GroupID, updatedMessage)
 	}()
 }
-
 func (h *Hub) deleteAndBroadcastMessage(msg Message) {
 	id, err := primitive.ObjectIDFromHex(msg.ID)
 	if err != nil {
@@ -374,25 +317,27 @@ func (h *Hub) deleteAndBroadcastMessage(msg Message) {
 		return
 	}
 
-	deleteMessage := DeleteMessage{
-		ID:         msg.ID,
-		Type:       msg.Type,
-		IsDelete:   true,
-		GroupID:    msg.GroupID,
-		SenderID:   msg.SenderID,
-		SenderInfo: msg.SenderInfo,
-		Timestamp:  msg.Timestamp,
+	res := map[string]interface{}{
+		"id":           msg.ID,
+		"type":         msg.Type,
+		"is_delete":    true,
+		"group_id":     msg.GroupID,
+		"sender_id":    msg.SenderID,
+		"sender_infor": msg.SenderInfo,
+		"created_at":   msg.Timestamp,
 	}
 
 	go func() {
 		if err := h.messageService.DeleteMessage(context.Background(), id, msg.Token); err != nil {
 			log.Printf("Error deleting message: %v", err)
 		}
-		updatedMessage, _ := json.Marshal(deleteMessage)
+		if err := h.messageService.DeleteMessageReacts(context.Background(), msg.ID, msg.GroupID); err != nil {
+			log.Printf("Error deleting message reacts: %v", err)
+		}
+		updatedMessage, _ := json.Marshal(res)
 		h.sendToGroup(msg.GroupID, updatedMessage)
 	}()
 }
-
 func (h *Hub) reactAndBroadcastMessage(msg Message) {
 
 	go func() {
@@ -401,23 +346,21 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 		err := h.messageService.InsertMessageReact(ctx, msg.ID, msg.GroupID, msg.SenderID, msg.ReactType)
 		if err != nil {
 			log.Printf("Error inserting message react: %v", err)
-			return 
+			return
 		}
 
 		groupDetail, err := h.groupService.GetGroupDetail(ctx, msg.GroupID)
 		if err != nil {
 			log.Printf("Error getting group detail: %v", err)
-			return 
+			return
 		}
-
-
 
 		reacts, err := h.messageService.GetMessageReacts(ctx, msg.ID, msg.GroupID)
 		if err != nil {
 			log.Printf("Error getting message reacts: %v", err)
-			return 
+			return
 		}
-		
+
 		var totalAllReacts int64 = 0
 		reactedsUserIDs := make(map[string]bool)
 
@@ -443,18 +386,18 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 		var notReactedMembers []map[string]interface{}
 		var ReactedMembers []map[string]interface{}
 
-		for _, member := range groupDetail.Members{
-			
+		for _, member := range groupDetail.Members {
+
 			memberInfo := map[string]interface{}{
-				"user_id": member.GroupMember.UserID,
-				"user_name": member.GroupMember.UserInfor.UserName,
+				"user_id":    member.GroupMember.UserID,
+				"user_name":  member.GroupMember.UserInfor.UserName,
 				"avatar_url": member.GroupMember.UserInfor.Avartar,
 			}
 
 			if reactedsUserIDs[member.GroupMember.UserID] {
-				var userReactions []string	
+				var userReactions []string
 				for _, react := range reacts {
-					for _, ur :=range react.UserReact {
+					for _, ur := range react.UserReact {
 						if ur.UserID == member.GroupMember.UserID {
 							userReactions = append(userReactions, react.React)
 						}
@@ -467,18 +410,17 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 			}
 
 		}
-		 
 
-		res := map[string]interface{} {
-			"type": "react-message",
-			"message_id": msg.ID,
-			"group_id": msg.GroupID,
-			"sender_id": msg.SenderID,
-			"sender_info": msg.SenderInfo,
-			"react_type": msg.ReactType,
-			"reacts": reacts,
-			"total_all_reacts": totalAllReacts,
-			"reacted_members": ReactedMembers,
+		res := map[string]interface{}{
+			"type":                "react-message",
+			"message_id":          msg.ID,
+			"group_id":            msg.GroupID,
+			"sender_id":           msg.SenderID,
+			"sender_infor":        msg.SenderInfo,
+			"react_type":          msg.ReactType,
+			"reacts":              reacts,
+			"total_all_reacts":    totalAllReacts,
+			"reacted_members":     ReactedMembers,
 			"not_reacted_members": notReactedMembers,
 		}
 
@@ -488,7 +430,6 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 	}()
 
 }
-
 func (h *Hub) sendToGroup(groupID string, message []byte) {
 	h.roomsMutex.RLock()
 	defer h.roomsMutex.RUnlock()

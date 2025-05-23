@@ -3,11 +3,9 @@ package socket
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
-
 	"github.com/gorilla/websocket"
 )
 
@@ -78,7 +76,6 @@ func (c *Client) readPump() {
 			}
 			continue
 		}
-		fmt.Printf("Message from client %s: %s\n", c.userID, message)
 		c.hub.broadcast <- bytes.TrimSpace(bytes.Replace(message, newLine, space, -1))
 	}
 }
@@ -98,34 +95,6 @@ func (c *Client) writePump() {
 				_ = c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 				return
 			}
-
-			// var msgType struct {
-			// 	Type     string `json:"type"`
-			// 	ID       string `json:"id"`
-			// 	GroupID  string `json:"group_id"`
-			// 	SenderID string `json:"sender_id"`
-			// 	ReaderID string `json:"reader_id"`
-			// }
-			// if err := json.Unmarshal(message, &msgType); err == nil {
-			// 	if (msgType.Type == "message" || msgType.Type == "edit-message") &&
-			// 		msgType.SenderID != c.userID && msgType.ID != "" {
-			// 		readReceipt := struct {
-			// 			Type      string `json:"type"`
-			// 			MessageID string `json:"message_id"`
-			// 			GroupID   string `json:"group_id"`
-			// 			SenderID  string `json:"sender_id"`
-			// 			ReaderID  string `json:"reader_id"`
-			// 		}{
-			// 			Type:      "read-receipt",
-			// 			MessageID: msgType.ID,
-			// 			GroupID:   msgType.GroupID,
-			// 			SenderID:  msgType.SenderID,
-			// 			ReaderID:  c.userID,
-			// 		}
-			// 		readMsg, _ := json.Marshal(readReceipt)
-			// 		c.hub.broadcast <- readMsg
-			// 	}
-			// }
 
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {

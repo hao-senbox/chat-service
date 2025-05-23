@@ -4,7 +4,6 @@ import (
 	"chat-service/internal/models"
 	"context"
 	"time"
-
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -13,6 +12,7 @@ import (
 type MessageReactRepository interface {
 	InsertMessageReact(ctx context.Context, reactMessage *models.MessageReact) error
 	GetMessageReact(ctx context.Context, messageID primitive.ObjectID, groupID primitive.ObjectID) ([]*models.MessageReact, error)
+	DeleteMessageReacts(ctx context.Context, messageID primitive.ObjectID, groupID primitive.ObjectID) error
 }
 
 type messageReactRepository struct {
@@ -44,6 +44,52 @@ func (r *messageReactRepository) GetMessageReact(ctx context.Context, messageID 
 }
 
 func (r *messageReactRepository) InsertMessageReact(ctx context.Context, reacMessage *models.MessageReact) error {
+
+	filterRemove := bson.M{
+		"message_id": reacMessage.MessageID,
+		"group_id":   reacMessage.GroupID,
+		"user_reacts.user_id": reacMessage.UserID,
+	}
+	
+	cursor, err := r.collection.Find(ctx, filterRemove)
+	if err != nil {
+		return err
+	}
+	defer cursor.Close(ctx)
+	
+	for cursor.Next(ctx) {
+
+		var doc bson.M
+		if err := cursor.Decode(&doc); err != nil {
+			continue
+		}
+	
+		id := doc["_id"]
+	
+		_, err := r.collection.UpdateOne(ctx, bson.M{
+			"_id": id,
+		}, bson.M{
+			"$inc": bson.M{"total_react": -1},
+			"$pull": bson.M{"user_reacts": bson.M{"user_id": reacMessage.UserID}},
+		})
+		if err != nil {
+			return err
+		}
+	
+		var updatedDoc bson.M
+		if err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&updatedDoc); err != nil {
+			return err
+		}
+	
+		if updatedDoc["total_react"].(int32) == 0 {
+			_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	
+
 	filter := bson.M{
 		"message_id": reacMessage.MessageID,
 		"group_id":   reacMessage.GroupID,
@@ -51,7 +97,7 @@ func (r *messageReactRepository) InsertMessageReact(ctx context.Context, reacMes
 	}
 
 	var existing bson.M
-	err := r.collection.FindOne(ctx, filter).Decode(&existing)
+	err = r.collection.FindOne(ctx, filter).Decode(&existing)
 	if err == mongo.ErrNoDocuments {
 		doc := bson.M{
 			"message_id":  reacMessage.MessageID,
@@ -72,36 +118,25 @@ func (r *messageReactRepository) InsertMessageReact(ctx context.Context, reacMes
 		return err
 	}
 
-	userReacts, ok := existing["user_reacts"].(primitive.A)
-	found := false
-	if ok {
-		for _, item := range userReacts {
-			reactItem, _ := item.(bson.M)
-			if reactItem["user_id"] == reacMessage.UserID {
-				found = true
-				break
-			}
-		}
+	update := bson.M{
+		"$inc": bson.M{"total_react": 1},
+		"$push": bson.M{"user_reacts": bson.M{
+			"user_id": reacMessage.UserID,
+			"count":   1,
+		}},
+	}
+	_, err = r.collection.UpdateOne(ctx, filter, update)
+	return err
+}
+
+func (r *messageReactRepository) DeleteMessageReacts(ctx context.Context, messageID primitive.ObjectID, groupID primitive.ObjectID) error {
+
+	filter := bson.M{"message_id": messageID, "group_id": groupID}
+	
+	_, err := r.collection.DeleteMany(ctx, filter)
+	if err != nil {
+		return err
 	}
 
-	if found {
-		update := bson.M{
-			"$inc": bson.M{"total_react": -1},
-			"$pull": bson.M{"user_reacts": bson.M{
-				"user_id": reacMessage.UserID,
-			}},
-		}
-		_, err := r.collection.UpdateOne(ctx, filter, update)
-		return err
-	} else {
-		update := bson.M{
-			"$inc": bson.M{"total_react": 1},
-			"$push": bson.M{"user_reacts": bson.M{
-				"user_id": reacMessage.UserID,
-				"count":   1,
-			}},
-		}
-		_, err := r.collection.UpdateOne(ctx, filter, update)
-		return err
-	}
+	return nil
 }

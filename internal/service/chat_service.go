@@ -27,6 +27,7 @@ type ChatService interface {
 	MarkAsRead(ctx context.Context, messageID string, userID string, senderID string, groupID string) error
 	InsertMessageReact(ctx context.Context, messageID, groupID, userID, reactType string) error
 	GetMessageReacts(ctx context.Context, messageID, groupID string) ([]*models.MessageReact, error)
+	DeleteMessageReacts(ctx context.Context, messageID, groupID string) error
 }
 
 type chatService struct {
@@ -314,6 +315,26 @@ func (c *callAPI) DeleteImage(key string, token string) error {
 	_, err = c.client.CallAPI(c.clientServer, endpoint, http.MethodPost, jsonData, headers)
 	if err != nil {
 		return fmt.Errorf("error calling API: %v", err)
+	}
+
+	return nil
+}
+
+func (s *chatService) DeleteMessageReacts(ctx context.Context, messageID, groupID string) error {
+
+	objectID, err := primitive.ObjectIDFromHex(messageID)
+	if err != nil {
+		return err
+	}
+
+	objectIDGroup, err := primitive.ObjectIDFromHex(groupID)
+	if err != nil {
+		return err
+	}
+
+	err = s.messagesReactRepository.DeleteMessageReacts(ctx, objectID, objectIDGroup)
+	if err != nil {
+		return err
 	}
 
 	return nil
