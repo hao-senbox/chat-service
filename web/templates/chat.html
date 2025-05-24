@@ -732,6 +732,7 @@
                 users: []
             };
             // Khởi tạo
+            addVoteButton();
             loadPreviousMessages();
             loadInformationGroup();
             connectWebSocket();
@@ -876,6 +877,11 @@
                                     return;
                                 }
 
+                                if (message.type === "create-vote") {
+                                    handleVoteMessage(message);
+                                    return;
+                                }
+
                                 if (message.type === 'delete-message') {
                                     const $msgDiv = $(`.message[data-id='${message.id}']`);
                                     if ($msgDiv.length) {
@@ -915,7 +921,269 @@
                     handleReconnect();
                 }
             }
-            // Xử lý kết nối lại
+
+            // Hàm tạo vote mới
+            function createVote(question, options, voteType = "single", endTime = null) {
+                if (!conn || conn.readyState !== WebSocket.OPEN) {
+                    console.error("WebSocket chưa kết nối");
+                    displaySystemMessage("Lỗi: Chưa kết nối đến server");
+                    return;
+                }
+
+                if (!question || question.trim() === "") {
+                    displaySystemMessage("Lỗi: Câu hỏi không được để trống");
+                    return;
+                }
+
+                if (!options || options.length < 2) {
+                    displaySystemMessage("Lỗi: Cần ít nhất 2 lựa chọn");
+                    return;
+                }
+
+                // Nếu không có endTime, mặc định là 1 giờ từ bây giờ
+                if (!endTime) {
+                    const now = new Date();
+                    now.setHours(now.getHours() + 1);
+                    endTime = now.toISOString();
+                }
+
+                const voteMessage = {
+                    type: "create-vote",
+                    group_id: groupID,
+                    sender_id: userID,
+                    vote_data: {
+                        question: question.trim(),
+                        options: options.map(opt => opt.trim()).filter(opt => opt !== ""),
+                        vote_type: voteType,
+                        end_time: endTime,
+                        is_active: true
+                    }
+                };
+
+                try {
+                    conn.send(JSON.stringify(voteMessage));
+                    console.log("Đã gửi vote:", voteMessage);
+                } catch (error) {
+                    console.error("Lỗi gửi vote:", error);
+                    displaySystemMessage("Lỗi: Không thể gửi vote");
+                }
+            }
+
+            // Hàm hiển thị form tạo vote
+            function showCreateVoteForm() {
+                const voteFormHTML = `
+        <div id="vote-form-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px;">
+                <h3>Tạo Vote Mới</h3>
+                <div style="margin-bottom: 15px;">
+                    <label>Câu hỏi:</label>
+                    <input type="text" id="vote-question" style="width: 100%; padding: 8px; margin-top: 5px;" placeholder="Nhập câu hỏi...">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label>Lựa chọn:</label>
+                    <div id="vote-options">
+                        <input type="text" class="vote-option-input" style="width: 100%; padding: 8px; margin: 5px 0;" placeholder="Lựa chọn 1">
+                        <input type="text" class="vote-option-input" style="width: 100%; padding: 8px; margin: 5px 0;" placeholder="Lựa chọn 2">
+                    </div>
+                    <button type="button" id="add-vote-option-btn" style="padding: 5px 10px; margin-top: 5px;">+ Thêm lựa chọn</button>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label>Loại vote:</label>
+                    <select id="vote-type" style="width: 100%; padding: 8px; margin-top: 5px;">
+                        <option value="single">Chọn một</option>
+                        <option value="multiple">Chọn nhiều</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label>Thời gian kết thúc:</label>
+                    <input type="datetime-local" id="vote-endtime" style="width: 100%; padding: 8px; margin-top: 5px;">
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" id="close-vote-form-btn" style="padding: 8px 15px; background: #ccc; border: none; border-radius: 4px;">Hủy</button>
+                    <button type="button" id="submit-vote-btn" style="padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px;">Tạo Vote</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+                document.body.insertAdjacentHTML('beforeend', voteFormHTML);
+
+                // Set default end time (1 hour from now)
+                const now = new Date();
+                now.setHours(now.getHours() + 1);
+                const defaultEndTime = now.toISOString().slice(0, 16);
+                document.getElementById('vote-endtime').value = defaultEndTime;
+
+                // Add event listeners instead of inline onclick
+                document.getElementById('add-vote-option-btn').addEventListener('click', addVoteOption);
+                document.getElementById('close-vote-form-btn').addEventListener('click', closeVoteForm);
+                document.getElementById('submit-vote-btn').addEventListener('click', submitVote);
+            }
+
+            // Hàm thêm lựa chọn mới
+            function addVoteOption() {
+                const optionsContainer = document.getElementById('vote-options');
+                const optionCount = optionsContainer.querySelectorAll('.vote-option-input').length;
+
+                if (optionCount < 10) { // Giới hạn tối đa 10 lựa chọn
+                    const newOption = document.createElement('input');
+                    newOption.type = 'text';
+                    newOption.className = 'vote-option-input';
+                    newOption.style.cssText = 'width: 100%; padding: 8px; margin: 5px 0;';
+                    newOption.placeholder = `Lựa chọn ${optionCount + 1}`;
+                    optionsContainer.appendChild(newOption);
+                } else {
+                    alert('Tối đa 10 lựa chọn');
+                }
+            }
+
+            // Hàm đóng form vote
+            function closeVoteForm() {
+                const modal = document.getElementById('vote-form-modal');
+                if (modal) {
+                    modal.remove();
+                }
+            }
+
+            // Hàm submit vote
+            function submitVote() {
+                const question = document.getElementById('vote-question').value;
+                const voteType = document.getElementById('vote-type').value;
+                const endTimeInput = document.getElementById('vote-endtime').value;
+
+                // Thu thập tất cả options
+                const optionInputs = document.querySelectorAll('.vote-option-input');
+                const options = Array.from(optionInputs)
+                    .map(input => input.value.trim())
+                    .filter(option => option !== '');
+
+                // Chuyển đổi thời gian
+                let endTime = null;
+                if (endTimeInput) {
+                    endTime = new Date(endTimeInput).toISOString();
+                }
+
+                // Validate
+                if (!question.trim()) {
+                    alert('Vui lòng nhập câu hỏi');
+                    return;
+                }
+
+                if (options.length < 2) {
+                    alert('Cần ít nhất 2 lựa chọn');
+                    return;
+                }
+
+                // Tạo vote
+                createVote(question, options, voteType, endTime);
+
+                // Đóng form
+                closeVoteForm();
+            }
+
+            // Hàm xử lý vote nhận được từ server
+            function handleVoteMessage(message) {
+
+                // Tạo HTML cho vote
+                const voteId = message.id || Date.now();
+                const voteHTML = `
+        <div class="message vote-message" data-id="${voteId}">
+            <div class="message-header">
+                <strong>${message.sender_infor?.name || message.sender_id}</strong>
+                <span class="message-time">${new Date().toLocaleTimeString()}</span>
+            </div>
+            <div class="vote-content">
+                <h4>📊 ${message.vote.question}</h4>
+                <div class="vote-options" id="vote-options-${voteId}">
+                    ${message.vote.options.map((option, index) => `
+                        <div class="vote-option" data-option-index="${index}">
+                            <button class="vote-option-btn" data-vote-id="${voteId}" data-option-index="${index}"
+                                    style="padding: 8px 12px; margin: 5px 0; width: 100%; text-align: left; border: 1px solid #ddd; background: #f9f9f9; cursor: pointer;">
+                                ${option.text || option} (${option.vote_count || 0} votes)
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="vote-info" style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                    Loại: ${message.vote.vote_type === 'single' ? 'Chọn một' : 'Chọn nhiều'} | 
+                    Kết thúc: ${new Date(message.vote.end_time).toLocaleString()}
+                </div>
+            </div>
+        </div>
+    `;
+
+                // Thêm vào chat
+                const chatMessages = document.getElementById('messages') || document.querySelector('.messages');
+                if (chatMessages) {
+                    chatMessages.insertAdjacentHTML('beforeend', voteHTML);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                    // Add event listeners for vote buttons
+                    const voteButtons = document.querySelectorAll(`#vote-options-${voteId} .vote-option-btn`);
+                    voteButtons.forEach(btn => {
+                        btn.addEventListener('click', function () {
+                            const voteId = this.getAttribute('data-vote-id');
+                            const optionIndex = parseInt(this.getAttribute('data-option-index'));
+                            voteForOption(voteId, optionIndex);
+                        });
+                    });
+                }
+            }
+
+            // Hàm vote cho một option
+            function voteForOption(voteId, optionIndex) {
+                if (!conn || conn.readyState !== WebSocket.OPEN) {
+                    console.error("WebSocket chưa kết nối");
+                    return;
+                }
+
+                const voteMessage = {
+                    type: "vote-option",
+                    vote_id: voteId,
+                    option_index: optionIndex,
+                    user_id: userID,
+                    group_id: groupID
+                };
+
+                try {
+                    conn.send(JSON.stringify(voteMessage));
+                    console.log("Đã vote:", voteMessage);
+                } catch (error) {
+                    console.error("Lỗi khi vote:", error);
+                }
+            }
+
+            // Đảm bảo các hàm có thể truy cập global
+            window.addVoteOption = addVoteOption;
+            window.closeVoteForm = closeVoteForm;
+            window.submitVote = submitVote;
+            window.voteForOption = voteForOption;
+            window.showCreateVoteForm = showCreateVoteForm;
+            window.handleVoteMessage = handleVoteMessage;
+            window.testCreateVote = testCreateVote;
+            window.addVoteButton = addVoteButton;
+
+            function testCreateVote() {
+                const testQuestion = "Bạn thích màu gì?";
+                const testOptions = ["Đỏ", "Xanh", "Vàng", "Tím"];
+                createVote(testQuestion, testOptions, "single");
+            }
+
+            // Hàm tạo button vote trong giao diện
+            function addVoteButton() {
+                const chatInput = document.querySelector('#message-input') || document.querySelector('input[type="text"]');
+                if (chatInput && chatInput.parentElement) {
+                    const voteButton = document.createElement('button');
+                    voteButton.innerHTML = '📊 Vote';
+                    voteButton.style.cssText = 'margin-left: 10px; padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;';
+                    voteButton.onclick = showCreateVoteForm;
+                    chatInput.parentElement.appendChild(voteButton);
+                }
+            }
             function handleReconnect() {
                 if (reconnectAttempts < maxReconnectAttempts) {
                     console.log(`Kết nối lại (${reconnectAttempts + 1}/${maxReconnectAttempts}) sau ${currentReconnectDelay / 1000}s`);
@@ -1347,7 +1615,6 @@
                     .scrollTop($("#chat-area")[0].scrollHeight);
             }
 
-            // Bật/tắt giao diện chat
             function enableChatInterface(enable) {
                 $("#message-input").prop("disabled", !enable)
                     .attr("placeholder", enable ? "Nhập tin nhắn..." : "Mất kết nối...");
@@ -1360,7 +1627,6 @@
                 }
             }
 
-            // Tải tin nhắn cũ
             function loadPreviousMessages() {
                 displaySystemMessage("Đang tải tin nhắn...");
 
@@ -1384,7 +1650,6 @@
                     }
                 });
             }
-
 
             function loadInformationGroup() {
                 $.ajax({
@@ -1455,7 +1720,6 @@
                 }
             }
 
-            // Hàm để ẩn/hiện danh sách người dùng online
             function toggleOnlineUsersList() {
                 const $usersList = $("#online-users-list");
                 const $toggleBtn = $("#toggle-users-list");
@@ -1468,7 +1732,6 @@
                     $toggleBtn.text("Ẩn");
                 }
             }
-            // Quay lại
 
             function recallMessage(messageId) {
                 const recallRequest = {
@@ -1523,7 +1786,6 @@
                 // Tạm thay nội dung để chờ server broadcast về
                 $msgDiv.find('.message-content').text(newText);
             });
-
             function reactToMessage(messageIds, reactType) {
 
                 if (!conn || conn.readyState !== WebSocket.OPEN) {
@@ -1550,7 +1812,6 @@
                 }
 
             }
-
             window.goBack = function () {
                 cleanupWebSocket();
                 window.location.href = "/";

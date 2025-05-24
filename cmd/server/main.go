@@ -60,6 +60,7 @@ func main() {
 	userOnlineCollection := mongoClient.Database(cfg.MongoDB).Collection("user_online")
 	messagesReactCollection := mongoClient.Database(cfg.MongoDB).Collection("messages_react")
 	messagesReadCollection := mongoClient.Database(cfg.MongoDB).Collection("messages_read")
+	messagesVoteCollection := mongoClient.Database(cfg.MongoDB).Collection("messages_vote")
 	messagesReadRepository := repository.NewReadMessageRepository(messagesReadCollection)
 	if err := messagesReadRepository.EnsureIndexes(context.Background()); err != nil {
 		log.Fatalf("Failed to create indexes: %v", err)
@@ -73,10 +74,14 @@ func main() {
 	groupService := service.NewGroupService(groupRepository, groupMemberRepository, messagesRepository, userService, nil)
 	messageService := service.NewChatService(consulClient ,messagesRepository, messagesReadRepository, groupService, userService, messagesReactRepository)
 	
+	messageVoteRepository := repository.NewVoteRepository(messagesVoteCollection)
+	voteService := service.NewVoteService(messageVoteRepository)
+	
+
 	groupService.SetMessageService(messageService)
 	groupRepository.SetGroupMemberRepo(groupMemberRepository)
 
-	hub := socket.NewHub(messageService, userService, userOnlineRepository, groupService)
+	hub := socket.NewHub(messageService, userService, userOnlineRepository, groupService, voteService)
 	go hub.Run()
 	// Set up router with Gin
 	router := gin.Default()

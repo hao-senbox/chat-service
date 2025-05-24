@@ -3,9 +3,11 @@ package socket
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -76,6 +78,7 @@ func (c *Client) readPump() {
 			}
 			continue
 		}
+		fmt.Printf("Message from client %s: %s\n", c.userID, message)
 		c.hub.broadcast <- bytes.TrimSpace(bytes.Replace(message, newLine, space, -1))
 	}
 }

@@ -9,6 +9,7 @@ import (
 type Message struct {
 	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
 	GroupID    primitive.ObjectID `bson:"group_id" json:"group_id"`
+	VoteID     *primitive.ObjectID `bson:"vote_id" json:"vote_id"`
 	SenderID   string             `bson:"sender_id" json:"sender_id"`
 	Content    string             `bson:"content" json:"content"`
 	ContenType string             `bson:"content_type" json:"content_type"`
