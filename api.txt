@@ -1,0 +1,18 @@
+GET     /api/v1/chat/:group_id
+GET     /api/v1/chat/check/:user_id/:group_id
+GET     /api/v1/chat/download/:group_id
+GET     /api/v1/chat/information/user/:user_id
+GET     /api/v1/chat/react/:group_id/:message_id
+
+GET     /api/v1/group/
+GET     /api/v1/group/:group_id
+GET     /api/v1/group/count/keywod
+POST    /api/v1/group/
+POST    /api/v1/group/generate/qrcode
+PUT     /api/v1/group/:group_id
+DELETE  /api/v1/group/:group_id
+
+POST    /api/v1/group/user
+POST    /api/v1/group/join_group/by_qrcode
+GET     /api/v1/group/user/:user_id
+DELETE  /api/v1/group/user/:group_id

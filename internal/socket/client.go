@@ -3,6 +3,7 @@ package socket
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -11,40 +12,40 @@ import (
 )
 
 const (
-    // Tăng thời gian chờ viết để tránh timeout
-    writeWait = 15 * time.Second
-    // Tăng thời gian chờ pong để cho phép kết nối kém ổn định
-    pongWait = 120 * time.Second
-    // Đảm bảo thời gian ping nhỏ hơn thời gian pong
-    pingPeriod = (pongWait * 8) / 10
-    // Tăng kích thước tin nhắn tối đa
-    maxMessageSize = 4096
+	// Tăng thời gian chờ viết để tránh timeout
+	writeWait = 15 * time.Second
+	// Tăng thời gian chờ pong để cho phép kết nối kém ổn định
+	pongWait = 120 * time.Second
+	// Đảm bảo thời gian ping nhỏ hơn thời gian pong
+	pingPeriod = (pongWait * 8) / 10
+	// Tăng kích thước tin nhắn tối đa
+	maxMessageSize = 4096
 )
 
 var (
-    newLine = []byte{'\n'}
-    space = []byte{' '}
+	newLine = []byte{'\n'}
+	space   = []byte{' '}
 )
 
 var upgrader = websocket.Upgrader{
-    ReadBufferSize: 4096,
-    WriteBufferSize: 4096,
-    // Thêm CheckOrigin để cho phép kết nối từ bất kỳ nguồn nào
-    CheckOrigin: func(r *http.Request) bool {
-        return true
-    },
+	ReadBufferSize:  4096,
+	WriteBufferSize: 4096,
+	// Thêm CheckOrigin để cho phép kết nối từ bất kỳ nguồn nào
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
 type MessageType struct {
-    Type string `json:"type,omitempty"`
+	Type string `json:"type,omitempty"`
 }
 
 type Client struct {
-    hub *Hub
-    conn *websocket.Conn
-    send chan []byte
-    userID string
-    groupID string
+	hub     *Hub
+	conn    *websocket.Conn
+	send    chan []byte
+	userID  string
+	groupID string
 }
 
 func (c *Client) readPump() {
@@ -77,7 +78,7 @@ func (c *Client) readPump() {
 			}
 			continue
 		}
-
+		fmt.Printf("Message from client %s: %s\n", c.userID, message)
 		c.hub.broadcast <- bytes.TrimSpace(bytes.Replace(message, newLine, space, -1))
 	}
 }

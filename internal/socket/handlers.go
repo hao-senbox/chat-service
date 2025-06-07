@@ -17,7 +17,6 @@ func ServeWsGin(hub *Hub) gin.HandlerFunc {
             return
         }
         
-        // Ghi log khi có kết nối mới
         log.Printf("New WebSocket connection request from user %s to group %s", userID, groupID)
         
         conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
