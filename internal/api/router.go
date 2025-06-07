@@ -43,7 +43,7 @@ func RegisterGroupRouters(r *gin.Engine, groupService service.GroupService) {
 
 		//Group User
 		groupGroup.POST("/user", handlers.AddUserToGroup)
-		groupGroup.POST("join_group/by_qrcode", handlers.JoinGroupByQrCode)
+		groupGroup.POST("/join_group/by_qrcode", handlers.JoinGroupByQrCode)
 		groupGroup.GET("/user/:user_id", handlers.GetUserGroups)
 		groupGroup.DELETE("/user/:group_id", handlers.RemoveUserFromGroup)
 	}
