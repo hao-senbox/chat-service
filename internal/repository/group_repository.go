@@ -18,13 +18,13 @@ type GroupRepository interface {
 	DecrementMemberCount(ctx context.Context, groupID primitive.ObjectID) error
 	UpdateGroup(ctx context.Context, groupID primitive.ObjectID, group *models.GroupRequest) error
 	DeleteGroup(ctx context.Context, groupID primitive.ObjectID) error
+	CreateGroupQrCode(ctx context.Context, groupID primitive.ObjectID, qrCode *models.GroupQrCode) error
 	SetGroupMemberRepo (repo GroupMemberRepository)
-	
 }
 
 type GroupMemberRepository interface {
 	AddUserToGroup(ctx context.Context, group *models.GroupMember) error
-	GetGroupMembers(ctx context.Context, groupID primitive.ObjectID) ([]*models.GroupMember, error)
+	GetGroupMembers(ctx context.Context, groupID primitive.ObjectID) ([]*models.GroupMemberResponse, error)
 	GetgroupMemberDetail(ctx context.Context, userId string, groupID primitive.ObjectID) (*models.GroupMember, error)
 	DeleteUserFromGroup(ctx context.Context, groupID primitive.ObjectID, userID string) error
 }
@@ -59,7 +59,7 @@ func (r *groupRepository) SetGroupMemberRepo (repo GroupMemberRepository) {
 	r.groupMemberRepo = repo
 }
 
-func (r *groupMemberRepository) GetGroupMembers(ctx context.Context, groupID primitive.ObjectID) ([]*models.GroupMember, error) {
+func (r *groupMemberRepository) GetGroupMembers(ctx context.Context, groupID primitive.ObjectID) ([]*models.GroupMemberResponse, error) {
 
 	filter := bson.M{"group_id": groupID}
 
@@ -69,7 +69,7 @@ func (r *groupMemberRepository) GetGroupMembers(ctx context.Context, groupID pri
 	}
 	defer cursor.Close(ctx)
 
-	var groupMembers []*models.GroupMember
+	var groupMembers []*models.GroupMemberResponse
 
 	if err := cursor.All(ctx, &groupMembers); err != nil {
 		return nil, fmt.Errorf("failed to decode group members: %w", err)
@@ -260,6 +260,20 @@ func (r *groupMemberRepository) DeleteUserFromGroup(ctx context.Context, groupID
 	}
 
 	if err := r.groupRepository.DecrementMemberCount(ctx, groupID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
+func (r *groupRepository) CreateGroupQrCode(ctx context.Context, groupID primitive.ObjectID, qrCode *models.GroupQrCode) error {
+	
+	filter := bson.M{"_id": groupID}
+	update := bson.M{"$push": bson.M{"group_qr": qrCode}}
+
+	_, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
 		return err
 	}
 

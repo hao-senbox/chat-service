@@ -4,8 +4,9 @@ import (
 	"chat-service/internal/models"
 	"chat-service/internal/service"
 	"fmt"
+	"math"
 	"net/http"
-
+	"time"
 	"github.com/gin-gonic/gin"
 )
 
@@ -20,6 +21,22 @@ func NewChatService(chatService service.ChatService) *ChatHandlers {
 }
 
 func (h *ChatHandlers) GetGroupMessages(c *gin.Context) {
+
+	var req models.Panigination
+
+	if err := c.ShouldBindQuery(&req); err != nil {
+		SendError(c, http.StatusBadRequest, err, models.ErrInvalidRequest)
+		return
+	}
+
+	if req.Page == 0 {
+		req.Page = 1
+	}
+
+	if req.Limit == 0 {
+		req.Limit = 30
+	}
+
 	groupID := c.Param("group_id")
 
 	if groupID == "" {
@@ -27,13 +44,23 @@ func (h *ChatHandlers) GetGroupMessages(c *gin.Context) {
 		return
 	}
 
-	messages, err := h.chatService.GetGroupMessages(c, groupID)
+	messages, totalItems, err := h.chatService.GetGroupMessages(c, groupID, nil, nil, &req)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return
 	}
 
-	SendSuccess(c, http.StatusOK, "Get group messages successfully", messages)
+	totalPages := int(math.Ceil(float64(totalItems) / float64(req.Limit)))
+
+	data := models.PaniginationResponse{
+		TotalItems: totalItems,
+		TotalPages: totalPages,
+		Limit:      req.Limit,
+		Page:       req.Page,
+		Data:       messages,
+	}
+
+	SendSuccess(c, http.StatusOK, "Get group messages successfully", data)
 }
 
 func (h *ChatHandlers) IsUserInGroup(c *gin.Context) {
@@ -57,6 +84,28 @@ func (h *ChatHandlers) IsUserInGroup(c *gin.Context) {
 
 func (h *ChatHandlers) DownloadGroupMessages(c *gin.Context) {
 
+	var fromTime, toTime *time.Time
+
+	fromStr := c.Query("from")
+	if fromStr != "" {
+		t, err := time.Parse(time.RFC3339, fromStr)
+		if err != nil {
+			SendError(c, http.StatusBadRequest, fmt.Errorf("invalid from time"), models.ErrInvalidRequest)
+			return
+		}
+		fromTime = &t
+	}
+
+	toStr := c.Query("to")
+	if toStr != "" {
+		t, err := time.Parse(time.RFC3339, toStr)
+		if err != nil {
+			SendError(c, http.StatusBadRequest, fmt.Errorf("invalid to time"), models.ErrInvalidRequest)
+			return
+		}
+		toTime = &t
+	}
+
 	groupID := c.Param("group_id")
 
 	if groupID == "" {
@@ -64,7 +113,7 @@ func (h *ChatHandlers) DownloadGroupMessages(c *gin.Context) {
 		return
 	}
 
-	err := h.chatService.DownloadGroupMessages(c, groupID)
+	err := h.chatService.DownloadGroupMessages(c, groupID, fromTime, toTime)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return
@@ -87,4 +136,18 @@ func (h *ChatHandlers) GetUserInformation(c *gin.Context) {
 	}
 
 	SendSuccess(c, http.StatusOK, "Get user information successfully", user)
+}
+
+func (h *ChatHandlers) GetReactMessages(c *gin.Context) {
+
+	messageID := c.Param("message_id")
+	groupID := c.Param("group_id")
+
+	messages, err := h.chatService.GetMessageReacts(c, messageID, groupID)
+	if err != nil {
+		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
+		return
+	}
+
+	SendSuccess(c, http.StatusOK, "Get react messages successfully", messages)
 }

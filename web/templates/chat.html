@@ -7,16 +7,76 @@
     <title>{{ .title }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-
         .message {
             position: relative;
+        }
+
+        .reaction-bar {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            padding: 5px 10px;
+            z-index: 3;
+            margin-bottom: 5px;
+        }
+
+        .reaction-bar.show {
+            display: flex;
+        }
+
+        .reaction-option {
+            font-size: 18px;
+            margin: 0 5px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .reaction-option:hover {
+            transform: scale(1.2);
+        }
+
+        .message-reactions {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 5px;
+            padding: 3px;
+        }
+
+        .reaction-counter {
+            background-color: rgba(0, 0, 0, 0.1);
+            padding: 2px 5px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-right: 5px;
+            margin-bottom: 2px;
+            display: flex;
+            align-items: center;
+        }
+
+        .reaction-counter span {
+            margin-left: 3px;
+        }
+
+        .message-sent .reaction-counter {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
         }
 
         .message-actions-container {
             position: absolute;
             top: 0;
             bottom: 0;
-            right: -50px; 
+            right: -50px;
             width: 50px;
             display: flex;
             align-items: center;
@@ -65,7 +125,7 @@
             background-color: white;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            min-width: 120px;
+            min-width: 140px;
             z-index: 100;
             margin-top: 5px;
             display: none;
@@ -270,6 +330,7 @@
 
         .message-received {
             align-self: flex-start;
+            align-items: baseline;
             background-color: var(--received-message);
             border-bottom-left-radius: 4px;
         }
@@ -302,7 +363,7 @@
         .message-content {
             font-size: 0.95rem;
             display: flex;
-            justify-content: center;
+            justify-content: right;
             align-items: center;
             gap: 5px;
         }
@@ -458,6 +519,152 @@
                 max-width: 90%;
             }
         }
+
+        .image-button {
+            background: none;
+            border: none;
+            color: var(--dark-gray);
+            cursor: pointer;
+            padding: 8px;
+            margin-right: 8px;
+            transition: color 0.2s;
+        }
+
+        .image-button:hover {
+            color: var(--primary-color);
+        }
+
+        .message-image {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-top: 5px;
+            cursor: pointer;
+        }
+
+        .message-image:hover {
+            opacity: 0.9;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 15px;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .user-info {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .message-sent {
+            align-self: flex-end;
+        }
+
+        .message-received {
+            align-self: flex-start;
+        }
+
+        .message-sent .message-header {
+            flex-direction: row-reverse;
+        }
+
+        .message-sent .user-avatar {
+            margin-right: 0;
+            margin-left: 8px;
+        }
+
+        .image-container {
+            position: relative;
+            min-height: 100px;
+        }
+
+        .image-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .read-status {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+        }
+
+        .read-status-icon {
+            color: #3b82f6;
+            font-size: 14px;
+        }
+
+        .read-status-text {
+            cursor: pointer;
+            position: relative;
+        }
+
+        .read-status-tooltip {
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            background-color: #1e293b;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            z-index: 50;
+        }
+
+        .read-status-text:hover .read-status-tooltip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-4px);
+        }
+
+        .read-status-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            right: 10px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #1e293b transparent transparent transparent;
+        }
+
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #e2e8f0;
+            color: #475569;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .user-avatar-icon {
+            color: #64748b;
+            font-size: 18px;
+        }
     </style>
 </head>
 
@@ -483,6 +690,10 @@
         <div class="message-form">
             <div class="message-input-container">
                 <input type="text" id="message-input" class="message-input" placeholder="Type a message...">
+                <input type="file" id="image-input" accept="image/*" style="display: none;">
+                <button id="image-button" class="image-button">
+                    <i class="fas fa-image"></i>
+                </button>
             </div>
             <button id="send-button" class="send-button">
                 <i class="fas fa-paper-plane"></i>
@@ -507,6 +718,13 @@
             const heartbeatTime = 55000; // 55s
             let missedHeartbeats = 0;
             const maxMissedHeartbeats = 3;
+            const reactionEmojis = {
+                "understand": "💡",
+                "ok": "👍",
+                "done": "✅",
+                "help": "⚠️",
+                "unclear": "❓"
+            };
 
             // Biến theo dõi số người dùng online
             let onlineUsers = {
@@ -514,6 +732,7 @@
                 users: []
             };
             // Khởi tạo
+            addVoteButton();
             loadPreviousMessages();
             loadInformationGroup();
             connectWebSocket();
@@ -523,6 +742,53 @@
                 if (e.key === "Enter") sendMessage();
             });
             $(window).on("beforeunload", cleanupWebSocket);
+
+            // Thêm xử lý upload ảnh
+            $("#image-button").on("click", function () {
+                $("#image-input").click();
+            });
+
+            $("#image-input").on("change", function (e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("folder", "chat_messages");
+
+                // Gửi ảnh lên server
+                $.ajax({
+                    url: "http://localhost:8080/v1/images/upload",
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDg2NTMyMDYsInJvbGVzIjoiU3VwZXJBZG1pbiIsInVzZXJfaWQiOiJiMDE3NWFhMy0xY2ZjLTExZjAtYTkzZi0wMjQyYWMxNDAwMDQiLCJ1c2VybmFtZSI6InZvYW5oaGFvIn0.m1avU_NQ8R54qUIs7EP8FitOBg3Bbsj6mt5iUTaxn4k"
+                    },
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function (response) {
+                        if (response.status_code === 200) {
+                            // Gửi tin nhắn với key ảnh
+                            const message = {
+                                type: "message",
+                                sender_id: userID,
+                                group_id: groupID,
+                                content_type: "image",
+                                image_key: response.data.key,
+                                content: "",
+                                created_at: new Date()
+                            };
+
+                            conn.send(JSON.stringify(message));
+                        } else {
+                            displaySystemMessage("Lỗi khi tải ảnh lên");
+                        }
+                    },
+                    error: function () {
+                        displaySystemMessage("Lỗi khi tải ảnh lên");
+                    }
+                });
+            });
 
             // Kết nối WebSocket
             function connectWebSocket() {
@@ -556,7 +822,6 @@
                             return;
                         }
 
-
                         handleReconnect();
                     };
 
@@ -567,52 +832,85 @@
                     conn.onmessage = function (evt) {
                         try {
                             missedHeartbeats = 0;
-                            const message = JSON.parse(evt.data);
-                            console.log("Nhận tin nhắn:", message)
-                            // Xử lý thông báo cập nhật số người online
-                            if (message.type === "online_update") {
-                                onlineUsers.count = message.online_count;
-                                onlineUsers.users = message.online_users || [];
-                                updateOnlineUsersDisplay();
-                                return;
-                            }
 
-                            if (message.type === 'edit-message') {
-                                const $msgDiv = $(`.message[data-id='${message.id}']`);
-                                if ($msgDiv.length) {
-                                    $msgDiv.find('.message-content').text(message.content);
-                                }
-                                
-                                return;
-                            }
-
-                            if (message.type === 'delete-message') {
-                                const $msgDiv = $(`.message[data-id='${message.id}']`);
-                                if ($msgDiv.length) {
-                                    $msgDiv.find('.message-content').text("Tin nhắn đã bị thu hồi");
-                                    $msgDiv.css("opacity", "0.5");
-                                    $msgDiv.find('.message-controls').remove();
-                                }
-                                return;
-                            }
-
-                            if (message.type === "pong") {
-                                console.log("Nhận heartbeat pong");
-                                return;
-                            }
-
-                            if (message.error) {
-                                console.error("Lỗi từ server:", message.error);
-                                displaySystemMessage("Lỗi: " + message.error);
-                                return;
-                            }
-
-                            displayMessage(message);
-                        } catch (e) {
+                            // Kiểm tra nếu dữ liệu là chuỗi đơn giản "pong"
                             if (evt.data === "pong") {
                                 console.log("Nhận heartbeat pong");
                                 return;
                             }
+
+                            // Xử lý tin nhắn JSON
+                            let messages;
+
+                            // Kiểm tra nếu evt.data chứa nhiều JSON (phân tách bởi dòng mới)
+                            if (evt.data.includes('\n')) {
+                                const jsonStrings = evt.data.split('\n').filter(str => str.trim() !== '');
+                                messages = jsonStrings.map(jsonStr => {
+                                    try {
+                                        return JSON.parse(jsonStr);
+                                    } catch (e) {
+                                        console.error("Lỗi phân tích phần tin nhắn:", e, jsonStr);
+                                        return null;
+                                    }
+                                }).filter(msg => msg !== null);
+                            } else {
+                                // Một JSON duy nhất
+                                messages = [JSON.parse(evt.data)];
+                            }
+
+                            // Xử lý từng tin nhắn đã phân tách
+                            messages.forEach(message => {
+                                console.log("Nhận tin nhắn:", message);
+                                // Các xử lý tin nhắn như trước đây...
+                                if (message.type === "online_update") {
+                                    onlineUsers.count = message.online_count;
+                                    onlineUsers.users = message.online_users || [];
+                                    updateOnlineUsersDisplay();
+                                    return;
+                                }
+
+                                if (message.type === 'edit-message') {
+                                    const $msgDiv = $(`.message[data-id='${message.id}']`);
+                                    if ($msgDiv.length) {
+                                        $msgDiv.find('.message-content').text(message.content);
+                                    }
+                                    return;
+                                }
+
+                                if (message.type === "create-vote") {
+                                    handleVoteMessage(message);
+                                    return;
+                                }
+
+                                if (message.type === 'delete-message') {
+                                    const $msgDiv = $(`.message[data-id='${message.id}']`);
+                                    if ($msgDiv.length) {
+                                        $msgDiv.find('.message-content').text("Tin nhắn đã bị thu hồi");
+                                        $msgDiv.css("opacity", "0.5");
+                                        $msgDiv.find('.message-controls').remove();
+                                    }
+                                    return;
+                                }
+
+                                if (message.type == "react-message") {
+                                    updateMessageReactions(message);
+                                    return;
+                                }
+
+                                if (message.type === "pong") {
+                                    console.log("Nhận heartbeat pong");
+                                    return;
+                                }
+
+                                if (message.error) {
+                                    console.error("Lỗi từ server:", message.error);
+                                    displaySystemMessage("Lỗi: " + message.error);
+                                    return;
+                                }
+
+                                displayMessage(message);
+                            });
+                        } catch (e) {
                             console.error("Lỗi định dạng tin nhắn:", e);
                             console.error("Raw message data:", evt.data);
                         }
@@ -624,7 +922,268 @@
                 }
             }
 
-            // Xử lý kết nối lại
+            // Hàm tạo vote mới
+            function createVote(question, options, voteType = "single", endTime = null) {
+                if (!conn || conn.readyState !== WebSocket.OPEN) {
+                    console.error("WebSocket chưa kết nối");
+                    displaySystemMessage("Lỗi: Chưa kết nối đến server");
+                    return;
+                }
+
+                if (!question || question.trim() === "") {
+                    displaySystemMessage("Lỗi: Câu hỏi không được để trống");
+                    return;
+                }
+
+                if (!options || options.length < 2) {
+                    displaySystemMessage("Lỗi: Cần ít nhất 2 lựa chọn");
+                    return;
+                }
+
+                // Nếu không có endTime, mặc định là 1 giờ từ bây giờ
+                if (!endTime) {
+                    const now = new Date();
+                    now.setHours(now.getHours() + 1);
+                    endTime = now.toISOString();
+                }
+
+                const voteMessage = {
+                    type: "create-vote",
+                    group_id: groupID,
+                    sender_id: userID,
+                    vote_data: {
+                        question: question.trim(),
+                        options: options.map(opt => opt.trim()).filter(opt => opt !== ""),
+                        vote_type: voteType,
+                        end_time: endTime,
+                        is_active: true
+                    }
+                };
+
+                try {
+                    conn.send(JSON.stringify(voteMessage));
+                    console.log("Đã gửi vote:", voteMessage);
+                } catch (error) {
+                    console.error("Lỗi gửi vote:", error);
+                    displaySystemMessage("Lỗi: Không thể gửi vote");
+                }
+            }
+
+            // Hàm hiển thị form tạo vote
+            function showCreateVoteForm() {
+                const voteFormHTML = `
+        <div id="vote-form-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px;">
+                <h3>Tạo Vote Mới</h3>
+                <div style="margin-bottom: 15px;">
+                    <label>Câu hỏi:</label>
+                    <input type="text" id="vote-question" style="width: 100%; padding: 8px; margin-top: 5px;" placeholder="Nhập câu hỏi...">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label>Lựa chọn:</label>
+                    <div id="vote-options">
+                        <input type="text" class="vote-option-input" style="width: 100%; padding: 8px; margin: 5px 0;" placeholder="Lựa chọn 1">
+                        <input type="text" class="vote-option-input" style="width: 100%; padding: 8px; margin: 5px 0;" placeholder="Lựa chọn 2">
+                    </div>
+                    <button type="button" id="add-vote-option-btn" style="padding: 5px 10px; margin-top: 5px;">+ Thêm lựa chọn</button>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label>Loại vote:</label>
+                    <select id="vote-type" style="width: 100%; padding: 8px; margin-top: 5px;">
+                        <option value="single">Chọn một</option>
+                        <option value="multiple">Chọn nhiều</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label>Thời gian kết thúc:</label>
+                    <input type="datetime-local" id="vote-endtime" style="width: 100%; padding: 8px; margin-top: 5px;">
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" id="close-vote-form-btn" style="padding: 8px 15px; background: #ccc; border: none; border-radius: 4px;">Hủy</button>
+                    <button type="button" id="submit-vote-btn" style="padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px;">Tạo Vote</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+                document.body.insertAdjacentHTML('beforeend', voteFormHTML);
+
+                // Set default end time (1 hour from now)
+                const now = new Date();
+                now.setHours(now.getHours() + 1);
+                const defaultEndTime = now.toISOString().slice(0, 16);
+                document.getElementById('vote-endtime').value = defaultEndTime;
+
+                // Add event listeners instead of inline onclick
+                document.getElementById('add-vote-option-btn').addEventListener('click', addVoteOption);
+                document.getElementById('close-vote-form-btn').addEventListener('click', closeVoteForm);
+                document.getElementById('submit-vote-btn').addEventListener('click', submitVote);
+            }
+
+            // Hàm thêm lựa chọn mới
+            function addVoteOption() {
+                const optionsContainer = document.getElementById('vote-options');
+                const optionCount = optionsContainer.querySelectorAll('.vote-option-input').length;
+
+                if (optionCount < 10) { // Giới hạn tối đa 10 lựa chọn
+                    const newOption = document.createElement('input');
+                    newOption.type = 'text';
+                    newOption.className = 'vote-option-input';
+                    newOption.style.cssText = 'width: 100%; padding: 8px; margin: 5px 0;';
+                    newOption.placeholder = `Lựa chọn ${optionCount + 1}`;
+                    optionsContainer.appendChild(newOption);
+                } else {
+                    alert('Tối đa 10 lựa chọn');
+                }
+            }
+
+            // Hàm đóng form vote
+            function closeVoteForm() {
+                const modal = document.getElementById('vote-form-modal');
+                if (modal) {
+                    modal.remove();
+                }
+            }
+
+            // Hàm submit vote
+            function submitVote() {
+                const question = document.getElementById('vote-question').value;
+                const voteType = document.getElementById('vote-type').value;
+                const endTimeInput = document.getElementById('vote-endtime').value;
+
+                // Thu thập tất cả options
+                const optionInputs = document.querySelectorAll('.vote-option-input');
+                const options = Array.from(optionInputs)
+                    .map(input => input.value.trim())
+                    .filter(option => option !== '');
+
+                // Chuyển đổi thời gian
+                let endTime = null;
+                if (endTimeInput) {
+                    endTime = new Date(endTimeInput).toISOString();
+                }
+
+                // Validate
+                if (!question.trim()) {
+                    alert('Vui lòng nhập câu hỏi');
+                    return;
+                }
+
+                if (options.length < 2) {
+                    alert('Cần ít nhất 2 lựa chọn');
+                    return;
+                }
+
+                // Tạo vote
+                createVote(question, options, voteType, endTime);
+
+                // Đóng form
+                closeVoteForm();
+            }
+
+            // Hàm xử lý vote nhận được từ server
+            function handleVoteMessage(message) {
+
+                // Tạo HTML cho vote
+                const voteId = message.id || Date.now();
+                const voteHTML = `
+        <div class="message vote-message" data-id="${voteId}">
+            <div class="message-header">
+                <strong>${message.sender_infor?.name || message.sender_id}</strong>
+                <span class="message-time">${new Date().toLocaleTimeString()}</span>
+            </div>
+            <div class="vote-content">
+                <h4>📊 ${message.vote.question}</h4>
+                <div class="vote-options" id="vote-options-${voteId}">
+                    ${message.vote.options.map((option, index) => `
+                        <div class="vote-option" data-option-index="${index}">
+                            <button class="vote-option-btn" data-vote-id="${voteId}" data-option-index="${index}"
+                                    style="padding: 8px 12px; margin: 5px 0; width: 100%; text-align: left; border: 1px solid #ddd; background: #f9f9f9; cursor: pointer;">
+                                ${option.text || option} (${option.vote_count || 0} votes)
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="vote-info" style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                    Loại: ${message.vote.vote_type === 'single' ? 'Chọn một' : 'Chọn nhiều'} | 
+                    Kết thúc: ${new Date(message.vote.end_time).toLocaleString()}
+                </div>
+            </div>
+        </div>
+    `;
+
+                // Thêm vào chat
+                const chatMessages = document.getElementById('messages') || document.querySelector('.messages');
+                if (chatMessages) {
+                    chatMessages.insertAdjacentHTML('beforeend', voteHTML);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                    // Add event listeners for vote buttons
+                    const voteButtons = document.querySelectorAll(`#vote-options-${voteId} .vote-option-btn`);
+                    voteButtons.forEach(btn => {
+                        btn.addEventListener('click', function () {
+                            const voteId = this.getAttribute('data-vote-id');
+                            const optionIndex = parseInt(this.getAttribute('data-option-index'));
+                            voteForOption(voteId, optionIndex);
+                        });
+                    });
+                }
+            }
+
+            // Hàm vote cho một option
+            function voteForOption(voteId, optionIndex) {
+                if (!conn || conn.readyState !== WebSocket.OPEN) {
+                    console.error("WebSocket chưa kết nối");
+                    return;
+                }
+
+                const voteMessage = {
+                    type: "vote-option",
+                    vote_id: voteId,
+                    option_index: optionIndex,
+                    user_id: userID,
+                    group_id: groupID
+                };
+
+                try {
+                    conn.send(JSON.stringify(voteMessage));
+                    console.log("Đã vote:", voteMessage);
+                } catch (error) {
+                    console.error("Lỗi khi vote:", error);
+                }
+            }
+
+            // Đảm bảo các hàm có thể truy cập global
+            window.addVoteOption = addVoteOption;
+            window.closeVoteForm = closeVoteForm;
+            window.submitVote = submitVote;
+            window.voteForOption = voteForOption;
+            window.showCreateVoteForm = showCreateVoteForm;
+            window.handleVoteMessage = handleVoteMessage;
+            window.testCreateVote = testCreateVote;
+            window.addVoteButton = addVoteButton;
+
+            function testCreateVote() {
+                const testQuestion = "Bạn thích màu gì?";
+                const testOptions = ["Đỏ", "Xanh", "Vàng", "Tím"];
+                createVote(testQuestion, testOptions, "single");
+            }
+
+            // Hàm tạo button vote trong giao diện
+            function addVoteButton() {
+                const chatInput = document.querySelector('#message-input') || document.querySelector('input[type="text"]');
+                if (chatInput && chatInput.parentElement) {
+                    const voteButton = document.createElement('button');
+                    voteButton.innerHTML = '📊 Vote';
+                    voteButton.style.cssText = 'margin-left: 10px; padding: 8px 12px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;';
+                    voteButton.onclick = showCreateVoteForm;
+                    chatInput.parentElement.appendChild(voteButton);
+                }
+            }
             function handleReconnect() {
                 if (reconnectAttempts < maxReconnectAttempts) {
                     console.log(`Kết nối lại (${reconnectAttempts + 1}/${maxReconnectAttempts}) sau ${currentReconnectDelay / 1000}s`);
@@ -726,10 +1285,43 @@
                 const $message = $("<div>")
                     .addClass(`message ${isSent ? 'message-sent' : 'message-received'}`)
                     .attr("data-id", message.id);
-                
+
                 const $header = $("<div>")
-                    .addClass("message-header")
-                    .text(isSent ? 'Bạn' : message.sender_infor.user_name);
+                    .addClass("message-header");
+
+                // Thêm avatar người dùng
+                const $avatar = $("<div>")
+                    .addClass("user-avatar")
+                    .css({
+                        "width": "32px",
+                        "height": "32px",
+                        "border-radius": "50%",
+                        "margin-right": "8px",
+                        "background-size": "cover",
+                        "background-position": "center"
+                    });
+
+                // Nếu có thông tin người gửi, lấy avatar từ sender_infor
+                if (message.sender_infor && message.sender_infor.avatar) {
+                    $avatar.css("background-image", `url(${message.sender_infor.avatar})`);
+                } else {
+                    // Use default avatar with user initials or icon
+                    if (message.sender_infor && message.sender_infor.user_name) {
+                        // Get first letter of the username
+                        const initial = message.sender_infor.user_name.charAt(0).toUpperCase();
+                        $avatar.text(initial);
+                    } else {
+                        // If no username, use a default user icon
+                        const $icon = $('<i class="fas fa-user user-avatar-icon"></i>');
+                        $avatar.append($icon);
+                    }
+                }
+
+                const $userInfo = $("<div>")
+                    .addClass("user-info")
+                    .text(isSent ? 'Bạn' : (message.sender_infor ? message.sender_infor.user_name : 'Unknown'));
+
+                $header.append($avatar).append($userInfo);
 
                 const $content = $("<div>")
                     .addClass("message-content");
@@ -738,64 +1330,237 @@
                     $content.text("Tin nhắn đã bị thu hồi");
                     $message.css("opacity", "0.5");
                 } else {
-                    $content.text(message.content);
+                    if (message.content_type === "image" && message.image_key) {
+                        // Tạo container cho ảnh
+                        const $imageContainer = $("<div>")
+                            .addClass("image-container")
+                            .css({
+                                "position": "relative",
+                                "max-width": "300px",
+                                "margin-top": "5px"
+                            });
+
+                        // Thêm loading indicator
+                        const $loading = $("<div>")
+                            .addClass("image-loading")
+                            .html('<i class="fas fa-spinner fa-spin"></i>')
+                            .css({
+                                "position": "absolute",
+                                "top": "50%",
+                                "left": "50%",
+                                "transform": "translate(-50%, -50%)",
+                                "color": "#666"
+                            });
+
+                        // Tạo ảnh
+                        const $image = $("<img>")
+                            .addClass("message-image")
+                            .attr("alt", "Image message")
+                            .css({
+                                "max-width": "100%",
+                                "border-radius": "8px",
+                                "opacity": "0"
+                            });
+
+                        // Thêm sự kiện load ảnh
+                        $image.on("load", function () {
+                            $(this).css("opacity", "1");
+                            $loading.remove();
+                        });
+
+                        // Thêm sự kiện lỗi ảnh
+                        $image.on("error", function () {
+                            $(this).attr("src", "/static/images/image-error.png");
+                            $loading.remove();
+                        });
+
+                        // Lấy URL ảnh từ API
+                        $.ajax({
+                            url: `http://localhost:8080/v1/images/`,
+                            method: "POST",
+                            headers: {
+                                "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDg2NTMyMDYsInJvbGVzIjoiU3VwZXJBZG1pbiIsInVzZXJfaWQiOiJiMDE3NWFhMy0xY2ZjLTExZjAtYTkzZi0wMjQyYWMxNDAwMDQiLCJ1c2VybmFtZSI6InZvYW5oaGFvIn0.m1avU_NQ8R54qUIs7EP8FitOBg3Bbsj6mt5iUTaxn4k"
+                            },
+                            contentType: "application/json",
+                            data: JSON.stringify({ key: message.image_key }), // gửi trong body
+                            success: function (response) {
+                                if (response.status_code === 200) {
+                                    $image.attr("src", response.data);
+                                } else {
+                                    $image.attr("src", "/static/images/image-error.png");
+                                }
+                            },
+                        });
+
+                        $imageContainer.append($loading).append($image);
+                        $content.append($imageContainer);
+                    } else {
+                        $content.text(message.content);
+                    }
                 }
 
                 const $timestamp = $("<div>")
                     .addClass("timestamp")
                     .text(formatted);
-                
-                if (isSent && !message.is_delete) {
-                    // Thêm vùng chứa (container) với khu vực hover rộng hơn
-                    const $actionsContainer = $("<div>")
-                        .addClass("message-actions-container");
-                        
-                    // Thêm dropdown menu cho các hành động
-                    const $actions = $("<div>")
-                        .addClass("message-actions");
-                        
-                    const $actionIcon = $("<button>")
-                        .addClass("message-action-btn")
-                        .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>')
-                        .on("click", function(e) {
-                            e.stopPropagation();
-                            // Đóng tất cả các dropdown khác trước khi mở dropdown hiện tại
-                            $(".message-dropdown").removeClass("show");
-                            $(this).next(".message-dropdown").toggleClass("show");
+
+                // Thêm khu vực hiển thị reaction cho tin nhắn
+                const $messageReactions = $("<div>")
+                    .addClass("message-reactions");
+
+                // Thêm các reaction đã có vào tin nhắn (nếu có)
+                if (message.reacts && message.reacts.length > 0) {
+                    message.reacts.forEach(react => {
+                        const reactType = react.react;
+                        const totalReact = react.total_react;
+
+                        if (totalReact > 0 && reactionEmojis[reactType]) {
+                            const $reactionCounter = $("<div>")
+                                .addClass("reaction-counter")
+                                .attr("data-react-type", reactType)
+                                .attr("title", `${totalReact} người đã thả ${reactionEmojis[reactType]}`)
+                                .html(`${reactionEmojis[reactType]}<span>${totalReact}</span>`);
+
+                            // Thêm tooltip hiển thị danh sách người dùng đã thả cảm xúc này
+                            if (react.user_reacts && react.user_reacts.length > 0) {
+                                const userList = react.user_reacts.map(user =>
+                                    user.user_infor.user_name || 'Unknown'
+                                ).join(', ');
+                                $reactionCounter.attr("data-tooltip", userList);
+                            }
+
+                            $messageReactions.append($reactionCounter);
+                        }
+                    });
+                }
+
+                // Thêm message actions
+                const $actionsContainer = $("<div>")
+                    .addClass("message-actions-container");
+
+                // Thêm reaction bar (thanh emoji)
+                const $reactionBar = $("<div>")
+                    .addClass("reaction-bar");
+
+                // Thêm các emoji vào reaction bar
+                for (const [reactType, emoji] of Object.entries(reactionEmojis)) {
+                    const $reactionOption = $("<div>")
+                        .addClass("reaction-option")
+                        .text(emoji)
+                        .attr("data-react-type", reactType)
+                        .on("click", function () {
+                            const messageId = $(this).closest(".message").attr("data-id");
+                            const reactType = $(this).attr("data-react-type");
+                            reactToMessage(messageId, reactType);
+                            $reactionBar.removeClass("show");
                         });
-                        
-                    const $dropdown = $("<div>")
-                        .addClass("message-dropdown");
-                        
+                    $reactionBar.append($reactionOption);
+                }
+
+                // Thêm dropdown menu
+                const $actions = $("<div>")
+                    .addClass("message-actions");
+
+                const $actionIcon = $("<button>")
+                    .addClass("message-action-btn")
+                    .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>')
+                    .on("click", function (e) {
+                        e.stopPropagation();
+                        // Đóng tất cả các dropdown khác trước khi mở dropdown hiện tại
+                        $(".message-dropdown").removeClass("show");
+                        $(this).next(".message-dropdown").toggleClass("show");
+                    });
+
+                const $dropdown = $("<div>")
+                    .addClass("message-dropdown");
+
+                const $reactOption = $("<div>")
+                    .addClass("dropdown-option react-option")
+                    .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"></circle><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"></path></svg><span>Thả cảm xúc</span>')
+                    .on("click", function (e) {
+                        e.stopPropagation();
+                        $(".reaction-bar").removeClass("show");
+                        $(this).closest(".message-actions-container").find(".reaction-bar").addClass("show");
+                        $(this).closest(".message-dropdown").removeClass("show");
+                    });
+
+                if (isSent && !message.is_delete) {
                     const $recallOption = $("<div>")
                         .addClass("dropdown-option recall-option")
                         .html('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path><line x1="18" y1="9" x2="12" y2="15"></line><line x1="12" y1="9" x2="18" y2="15"></line></svg><span>Thu hồi</span>')
-                        .on("click", function() {
+                        .on("click", function () {
                             recallMessage(message.id);
                             $(this).closest(".message-dropdown").removeClass("show");
                         });
-                        
                     $dropdown.append($recallOption);
-                    $actions.append($actionIcon).append($dropdown);
-                    $actionsContainer.append($actions);
-                    $message.append($actionsContainer);
                 }
 
-                $message.append($header).append($content).append($timestamp);
+                $dropdown.append($reactOption);
+                $actions.append($actionIcon).append($dropdown);
+                $actionsContainer.append($reactionBar).append($actions);
+
+                $message.append($header)
+                    .append($content)
+                    .append($messageReactions)
+                    .append($timestamp)
+                    .append($actionsContainer);
 
                 $("#chat-area").append($message)
                     .scrollTop($("#chat-area")[0].scrollHeight);
-                
+
                 // Ẩn dropdown khi click bên ngoài
-                $(document).on("click", function(e) {
+                $(document).on("click", function (e) {
                     if (!$(e.target).closest(".message-actions").length) {
                         $(".message-dropdown").removeClass("show");
+                    }
+
+                    if (!$(e.target).closest(".reaction-bar").length && !$(e.target).hasClass("react-option")) {
+                        $(".reaction-bar").removeClass("show");
                     }
                 });
             }
 
+            // Hàm cập nhật hiển thị reaction cho tin nhắn
+            function updateMessageReactions(reactMessage) {
+                const messageId = reactMessage.message_id;
+                const $message = $(`.message[data-id='${messageId}']`);
 
+                if (!$message.length) {
+                    console.log(`Không tìm thấy tin nhắn với ID: ${messageId}`);
+                    return;
+                }
 
+                // Lấy phần tử hiển thị reactions của tin nhắn
+                let $messageReactions = $message.find('.message-reactions');
+
+                // Xóa tất cả các reactions hiện tại
+                $messageReactions.empty();
+
+                // Thêm các reactions mới từ dữ liệu WebSocket
+                if (reactMessage.reacts && reactMessage.reacts.length > 0) {
+                    reactMessage.reacts.forEach(react => {
+                        const reactType = react.react;
+                        const totalReact = react.total_react;
+
+                        if (totalReact > 0 && reactionEmojis[reactType]) {
+                            const $reactionCounter = $("<div>")
+                                .addClass("reaction-counter")
+                                .attr("data-react-type", reactType)
+                                .attr("title", `${totalReact} người đã thả ${reactionEmojis[reactType]}`)
+                                .html(`${reactionEmojis[reactType]}<span>${totalReact}</span>`);
+
+                            // Thêm tooltip hiển thị danh sách người dùng đã thả cảm xúc này
+                            if (react.user_reacts && react.user_reacts.length > 0) {
+                                const userList = react.user_reacts.map(user =>
+                                    user.user_infor.user_name || 'Unknown'
+                                ).join(', ');
+                                $reactionCounter.attr("data-tooltip", userList);
+                            }
+
+                            $messageReactions.append($reactionCounter);
+                        }
+                    });
+                }
+            }
             // Add date divider if needed
             function addDateDividerIfNeeded(dateStr) {
                 if (!dateStr) return;
@@ -850,7 +1615,6 @@
                     .scrollTop($("#chat-area")[0].scrollHeight);
             }
 
-            // Bật/tắt giao diện chat
             function enableChatInterface(enable) {
                 $("#message-input").prop("disabled", !enable)
                     .attr("placeholder", enable ? "Nhập tin nhắn..." : "Mất kết nối...");
@@ -863,7 +1627,6 @@
                 }
             }
 
-            // Tải tin nhắn cũ
             function loadPreviousMessages() {
                 displaySystemMessage("Đang tải tin nhắn...");
 
@@ -873,8 +1636,8 @@
                     dataType: "json",
                     success: function (data) {
                         $("#chat-area").empty();
-                        if (data.data && data.data.length > 0) {
-                            data.data.forEach(message => {
+                        if (data.data.data && data.data.data.length > 0) {
+                            data.data.data.slice().reverse().forEach(message => {
                                 displayMessage(message);
                             });
                         } else {
@@ -887,7 +1650,6 @@
                     }
                 });
             }
-
 
             function loadInformationGroup() {
                 $.ajax({
@@ -908,6 +1670,7 @@
                     }
                 });
             }
+
             function updateOnlineUsersDisplay() {
                 // Kiểm tra xem đã có phần tử hiển thị người dùng online chưa
                 if ($("#online-users-count").length === 0) {
@@ -957,7 +1720,6 @@
                 }
             }
 
-            // Hàm để ẩn/hiện danh sách người dùng online
             function toggleOnlineUsersList() {
                 const $usersList = $("#online-users-list");
                 const $toggleBtn = $("#toggle-users-list");
@@ -970,19 +1732,19 @@
                     $toggleBtn.text("Ẩn");
                 }
             }
-            // Quay lại
 
             function recallMessage(messageId) {
                 const recallRequest = {
                     type: "delete-message",
                     is_delete: true,
+                    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDg2NTMyMDYsInJvbGVzIjoiU3VwZXJBZG1pbiIsInVzZXJfaWQiOiJiMDE3NWFhMy0xY2ZjLTExZjAtYTkzZi0wMjQyYWMxNDAwMDQiLCJ1c2VybmFtZSI6InZvYW5oaGFvIn0.m1avU_NQ8R54qUIs7EP8FitOBg3Bbsj6mt5iUTaxn4k",
                     sender_id: userID,
                     group_id: groupID,
                     id: messageId
                 };
 
                 conn.send(JSON.stringify(recallRequest));
-                
+
                 const $messageElement = $(`.message[data-id="${messageId}"]`);
                 if ($messageElement.length) {
                     $messageElement.find(".message-content").text("Tin nhắn đã bị thu hồi");
@@ -1024,8 +1786,32 @@
                 // Tạm thay nội dung để chờ server broadcast về
                 $msgDiv.find('.message-content').text(newText);
             });
+            function reactToMessage(messageIds, reactType) {
 
+                if (!conn || conn.readyState !== WebSocket.OPEN) {
+                    console.log("WebSocket chưa kết nối, đang kết nối lại...");
+                    displaySystemMessage("Mất kết nối. Đang kết nối lại...");
+                    connectWebSocket();
+                    return;
+                }
 
+                try {
+                    conn.send(JSON.stringify({
+                        type: "react-message",
+                        sender_id: userID,
+                        group_id: groupID,
+                        id: messageIds,
+                        react_type: reactType
+                    }));
+                    missedHeartbeats = 0;
+                } catch (error) {
+                    console.error("Lỗi khi gửi tin nhắn:", error);
+                    displaySystemMessage("Không thể gửi tin nhắn. Vui lòng thử lại.");
+                    cleanupWebSocket();
+                    connectWebSocket();
+                }
+
+            }
             window.goBack = function () {
                 cleanupWebSocket();
                 window.location.href = "/";
