@@ -800,9 +800,9 @@
 
                 isConnecting = true;
                 console.log("Đang kết nối WebSocket...");
-
+                console.log('URL:', `ws://localhost:8007/ws/${userID}/${groupID}`);
                 try {
-                    conn = new WebSocket(`ws://${window.location.host}/ws/${userID}/${groupID}`);
+                    conn = new WebSocket(`ws://localhost:8007/ws/${userID}/${groupID}`);
 
                     conn.onopen = function () {
                         console.log("Kết nối WebSocket thành công");
