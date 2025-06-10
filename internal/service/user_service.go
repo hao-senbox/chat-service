@@ -14,8 +14,8 @@ import (
 )
 
 type UserService interface {
-	GetUserInfor(userID string) (*models.UserInfor, error)
-	GetUserOnline (ctx context.Context, userID string) (*models.UserInfor, error)
+	GetUserInfor(userID string, token string) (*models.UserInfor, error)
+	GetUserOnline (ctx context.Context, userID string, token string) (*models.UserInfor, error)
 }
 
 type userService struct {
@@ -64,14 +64,14 @@ func NewServiceAPI(client *api.Client, serviceName string) *callAPI {
 	}
 }
 
-func (u *userService) GetUserOnline(ctx context.Context, userID string) (*models.UserInfor, error) {
+func (u *userService) GetUserOnline(ctx context.Context, userID string, token string) (*models.UserInfor, error) {
 
 	lastUserOnline, err := u.userOnlineRepo.GetUserOnline(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	userInfor, err := u.GetUserInfor(userID)
+	userInfor, err := u.GetUserInfor(userID, token)
 	if err != nil {
 		return nil, err
 	}
@@ -87,8 +87,9 @@ func (u *userService) GetUserOnline(ctx context.Context, userID string) (*models
 
 }
 
-func (u *userService) GetUserInfor(userID string) (*models.UserInfor, error) {
-    data := u.client.GetUserInfor(userID)
+func (u *userService) GetUserInfor(userID string, token string) (*models.UserInfor, error) {
+
+    data := u.client.GetUserInfor(userID, token)
 	
     if data == nil {
         return nil, fmt.Errorf("no user data found for userID: %s", userID)
@@ -130,18 +131,24 @@ func safeString(val interface{}) string {
 }
 
 
-func (c *callAPI) GetUserInfor(userID string) map[string]interface{} {
+func (c *callAPI) GetUserInfor(userID string, token string) map[string]interface{} {
 	endpoint := fmt.Sprintf("/v1/user/%s", userID)
-	res, err := c.client.CallAPI(c.clientServer, endpoint, http.MethodGet, nil, nil)
+
+	header := map[string]string{
+		"Content-Type": "application/json",
+		"Authorization": "Bearer " + token,
+	}
+	
+	res, err := c.client.CallAPI(c.clientServer, endpoint, http.MethodGet, nil, header)
 	if err != nil {
 		fmt.Printf("Error calling API: %v\n", err)
 		return nil
 	}
 
 	var userData interface{}
-	json.Unmarshal([]byte(res), &userData)
-	if userData == nil {
-		fmt.Println("User data is nil")
+	err = json.Unmarshal([]byte(res), &userData)
+	if err != nil {
+		fmt.Printf("Error unmarshalling response: %v\n", err)
 		return nil
 	}
 
