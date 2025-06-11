@@ -81,7 +81,7 @@ func (h *GroupHandlers) AddUserToGroup(c *gin.Context) {
 
 func (h *GroupHandlers) GetUserGroups(c *gin.Context) {
 
-	userID := c.Param("user_id")
+	userID := c.Value("user_id").(string)
 
 	if userID == "" {
 		SendError(c, http.StatusBadRequest, nil, models.ErrInvalidRequest)

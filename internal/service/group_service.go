@@ -66,7 +66,7 @@ func (s *groupService) GetAllGroups(ctx context.Context) ([]models.GroupWithMemb
 		var memberWithInfor []models.GroupMemberWithUserInfor
 
 		for _, member := range members {
-			userInfor, err := s.userService.GetUserInfor(member.UserID)
+			userInfor, err := s.userService.GetUserInfor(ctx, member.UserID)
 			member.UserInfor = userInfor
 			if err != nil {
 				return nil, fmt.Errorf("failed to get user infor: %w", err)
@@ -109,7 +109,7 @@ func (s *groupService) GetGroupDetail(ctx context.Context, groupID string) (*mod
 	var memberWithInfor []models.GroupMemberWithUserInfor
 
 	for _, member := range members {
-		userInfor, err := s.userService.GetUserInfor(member.UserID)
+		userInfor, err := s.userService.GetUserInfor(ctx, member.UserID)
 		member.UserInfor = userInfor
 		if err != nil {
 			return nil, fmt.Errorf("failed to get user infor: %w", err)

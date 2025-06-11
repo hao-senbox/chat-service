@@ -3,6 +3,7 @@ package api
 import (
 	"chat-service/internal/service"
 	"chat-service/internal/socket"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,13 +15,13 @@ func RegisterChatRouters(r *gin.Engine, chatService service.ChatService) {
 
 	handlers := NewChatService(chatService)
 
-	chatGroup := r.Group("/api/v1/chat")
+	chatGroup := r.Group("/api/v1/chat", Secured())
 	{
 		//Chat
 		chatGroup.GET("/:group_id", handlers.GetGroupMessages)
-		chatGroup.GET("/check/:user_id/:group_id", handlers.IsUserInGroup)
+		chatGroup.GET("/check/:group_id", handlers.IsUserInGroup)
 		chatGroup.GET("/download/:group_id", handlers.DownloadGroupMessages)
-		chatGroup.GET("/information/user/:user_id", handlers.GetUserInformation)
+		chatGroup.GET("/information/user", handlers.GetUserInformation)
 		chatGroup.GET("/react/:group_id/:message_id", handlers.GetReactMessages)
 	}
 }
@@ -29,7 +30,7 @@ func RegisterGroupRouters(r *gin.Engine, groupService service.GroupService) {
 	
 	handlers := NewGroupService(groupService)
 
-	groupGroup := r.Group("/api/v1/group")
+	groupGroup := r.Group("/api/v1/group", Secured())
 	{
 		//Group 
 		groupGroup.GET("", handlers.GetAllGroups)
@@ -44,7 +45,7 @@ func RegisterGroupRouters(r *gin.Engine, groupService service.GroupService) {
 		//Group User
 		groupGroup.POST("/user", handlers.AddUserToGroup)
 		groupGroup.POST("/join_group/by_qrcode", handlers.JoinGroupByQrCode)
-		groupGroup.GET("/user/:user_id", handlers.GetUserGroups)
+		groupGroup.GET("/user", handlers.GetUserGroups)
 		groupGroup.DELETE("/user/:group_id", handlers.RemoveUserFromGroup)
 	}
 }

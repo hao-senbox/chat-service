@@ -712,7 +712,7 @@
             const maxReconnectAttempts = 5;
             let currentReconnectDelay = 500; // ms
             const maxReconnectDelay = 30000; // 30s
-
+            const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMyMTE1MzUsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiJlMDFlY2NkYS00NjcxLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvXzEifQ.sPU_SwbuQK2vQDAZr9WwD9bofKKGt3VvYQDQ9ddhzSg'
             // Cấu hình heartbeat
             let heartbeatInterval = null;
             const heartbeatTime = 55000; // 55s
@@ -789,7 +789,7 @@
                     }
                 });
             });
-
+    
             // Kết nối WebSocket
             function connectWebSocket() {
                 if (isConnecting) return;
@@ -799,10 +799,9 @@
                 }
 
                 isConnecting = true;
-                console.log("Đang kết nối WebSocket...");
-                console.log('URL:', `ws://localhost:8007/ws/${userID}/${groupID}`);
+                const wsURL = `ws://localhost:8007/ws/${userID}/${groupID}?token=${encodeURIComponent(token)}`;
                 try {
-                    conn = new WebSocket(`ws://localhost:8007/ws/${userID}/${groupID}`);
+                    conn = new WebSocket(wsURL);
 
                     conn.onopen = function () {
                         console.log("Kết nối WebSocket thành công");
@@ -1633,6 +1632,9 @@
                 $.ajax({
                     url: `/api/v1/chat/${groupID}`,
                     method: "GET",
+                    headers: {
+                                "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTI4NjUxNjksInJvbGVzIjoiU3VwZXJBZG1pbiIsInVzZXJfaWQiOiI2ZGQzYzJkNS00MzRiLTExZjAtOTBkNS0wMjQyYzBhODYwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvIn0.px_AQhEOYo_QqTOYMSvTxdfX1aV8TiCx3g7OPqOd1HQ"
+                            },
                     dataType: "json",
                     success: function (data) {
                         $("#chat-area").empty();
@@ -1655,6 +1657,9 @@
                 $.ajax({
                     url: `/api/v1/group/${groupID}`,
                     method: "GET",
+                    headers: {
+                                "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTI4NjUxNjksInJvbGVzIjoiU3VwZXJBZG1pbiIsInVzZXJfaWQiOiI2ZGQzYzJkNS00MzRiLTExZjAtOTBkNS0wMjQyYzBhODYwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvIn0.px_AQhEOYo_QqTOYMSvTxdfX1aV8TiCx3g7OPqOd1HQ"
+                            },
                     dataType: "json",
                     success: function (data) {
                         console.log(data.data.group.name);

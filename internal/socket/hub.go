@@ -165,7 +165,7 @@ type Hub struct {
 	cancel context.CancelFunc
 }
 
-func NewHub(messageService service.ChatService,
+func NewHub(messageService service.ChatService, 
 	userService service.UserService,
 	userOnlineRepo repository.UserOnlineRepository,
 	groupService service.GroupService,
@@ -205,7 +205,13 @@ func NewHub(messageService service.ChatService,
 }
 
 // Improved cache with LRU eviction
-func (h *Hub) getUserInfo(userID string) (*UserInfo, error) {
+func (h *Hub) createContextWithToken(client *Client) context.Context {
+	ctx := context.Background()
+	return context.WithValue(ctx, "token", client.token)
+}
+
+// Updated getUserInfo method để nhận context
+func (h *Hub) getUserInfoWithContext(ctx context.Context, userID string) (*UserInfo, error) {
 	h.userCacheMutex.RLock()
 	if userInfo, ok := h.userCache[userID]; ok {
 		if time.Since(userInfo.LastFetch) < h.userCacheTTL {
@@ -215,8 +221,8 @@ func (h *Hub) getUserInfo(userID string) (*UserInfo, error) {
 	}
 	h.userCacheMutex.RUnlock()
 
-	// Fetch from service
-	userInfo, err := h.userService.GetUserInfor(userID)
+	// Fetch from service với context chứa token
+	userInfo, err := h.userService.GetUserInfor(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch user info: %v", err)
 	}
@@ -256,7 +262,7 @@ func (h *Hub) getUserInfo(userID string) (*UserInfo, error) {
 }
 
 // Debounced online users update
-func (h *Hub) broadcastOnlineUsersUpdate(groupID string) {
+func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client) {
 	h.workerPool.Submit(func() {
 		// Add small delay to batch updates
 		time.Sleep(100 * time.Millisecond)
@@ -269,7 +275,7 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string) {
 
 		if userMap, ok := h.onlineUsers[groupID]; ok {
 			onlineCount = len(userMap)
-
+			ctx := h.createContextWithToken(clientForToken)
 			// Use worker pool to fetch user info concurrently
 			userInfoChan := make(chan *models.UserInfor, onlineCount)
 			var wg sync.WaitGroup
@@ -278,7 +284,7 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string) {
 				wg.Add(1)
 				go func(uid string) {
 					defer wg.Done()
-					userInfo, err := h.getUserInfo(uid)
+					userInfo, err := h.getUserInfoWithContext(ctx, uid)
 					if err != nil {
 						log.Printf("Failed to get user info for %s: %v\n", uid, err)
 						return
@@ -372,10 +378,11 @@ func (h *Hub) handleClientRegister(client *Client) {
 
 	// Preload user info asynchronously
 	h.workerPool.Submit(func() {
-		_, _ = h.getUserInfo(client.userID)
+		ctx := h.createContextWithToken(client)
+		_, _ = h.getUserInfoWithContext(ctx, client.userID)
 	})
 
-	h.broadcastOnlineUsersUpdate(client.groupID)
+	h.broadcastOnlineUsersUpdate(client.groupID, client)
 }
 
 func (h *Hub) handleClientUnregister(client *Client) {
@@ -384,7 +391,8 @@ func (h *Hub) handleClientUnregister(client *Client) {
 		if _, found := clients[client]; found {
 			// Save user online status asynchronously
 			h.workerPool.Submit(func() {
-				err := h.userOnlineRepo.SaveUserOnline(context.Background(), &models.UserOnline{
+				ctx := h.createContextWithToken(client)
+				err := h.userOnlineRepo.SaveUserOnline(ctx, &models.UserOnline{
 					UserID:     client.userID,
 					LastOnline: time.Now(),
 				})
@@ -419,7 +427,9 @@ func (h *Hub) handleClientUnregister(client *Client) {
 	h.metrics.activeConnections--
 	h.metrics.mutex.Unlock()
 
-	h.broadcastOnlineUsersUpdate(client.groupID)
+	var tokenClient *Client
+
+	h.broadcastOnlineUsersUpdate(client.groupID, tokenClient)
 }
 
 func (h *Hub) handleBroadcastMessage(message []byte) {
@@ -436,9 +446,27 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 		return
 	}
 
+	var senderClient *Client
+	h.roomsMutex.RLock()
+	if clients, ok := h.rooms[msg.GroupID]; ok {
+		for client := range clients {
+			if client.userID == msg.SenderID {
+				senderClient = client
+				break
+			}
+		}
+	}
+	h.roomsMutex.RUnlock()
+
+	if senderClient == nil {
+		log.Printf("Could not find sender client for user %s", msg.SenderID)
+		return
+	}
+
 	// Get user info asynchronously
 	h.workerPool.Submit(func() {
-		userInfo, err := h.getUserInfo(msg.SenderID)
+		ctx := h.createContextWithToken(senderClient)
+		userInfo, err := h.getUserInfoWithContext(ctx, msg.SenderID)
 		if err == nil {
 			msg.SenderInfo = userInfo
 		} else {
@@ -648,7 +676,7 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 
 	var totalAllReacts int64 = 0
 	reactedsUserIDs := make(map[string]bool)
-
+	ctxToken := h.createContextWithToken(senderClient)
 	// Process reacts concurrently
 	var wg sync.WaitGroup
 	for i := range reacts {
@@ -659,7 +687,7 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 				wg.Add(1)
 				go func(reactIdx, userIdx int, userID string) {
 					defer wg.Done()
-					user, err := h.userService.GetUserInfor(userID)
+					user, err := h.userService.GetUserInfor(context.Background(), userID)
 					if err != nil {
 						log.Printf("Error getting user info: %v", err)
 						return
@@ -668,7 +696,7 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 						UserID:   user.UserID,
 						UserName: user.UserName,
 						Avartar:  user.Avartar,
-					}
+					}ctx := h.createContextWithToken(senderClient)
 				}(i, j, reacts[i].UserReact[j].UserID)
 			}
 		}

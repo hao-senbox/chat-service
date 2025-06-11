@@ -35,44 +35,46 @@
   </div>
 
   <script>
-
     const userId =  "{{ .userID }}";  
-    console.log(userId)
-
+    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMyMTE1MzUsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiJlMDFlY2NkYS00NjcxLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvXzEifQ.sPU_SwbuQK2vQDAZr9WwD9bofKKGt3VvYQDQ9ddhzSg';
     async function loadGroups() {
       try {
-        const response = await fetch(`/api/v1/group/user/${userId}`);
+        const response = await fetch('/api/v1/group/user', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+  
         const result = await response.json();
-
+  
         if (result.status_code === 200) {
           const groupListDiv = document.getElementById('groupList');
           groupListDiv.innerHTML = ''; // Clear cũ nếu có
-
+  
           result.data.forEach(group => {
             const groupDiv = document.createElement('div');
             groupDiv.className = 'group-item';
             groupDiv.innerText = group.name + ' - ' + group.description;
             groupDiv.onclick = () => {
-            // Redirect to the chat page with userID and groupID as parameters
-            window.location.href = `/chat/${userId}/${group.id}`;
+              // Redirect to the chat page with groupID only (userID không cần nữa)
+              window.location.href = `/chat/${userId}/${group.id}`;
             };
             groupListDiv.appendChild(groupDiv);
           });
-
+  
         } else {
           alert('Failed to load groups!');
         }
-
+  
       } catch (error) {
         console.error('Error loading groups:', error);
         alert('Error loading groups!');
       }
     }
-
-    // Khi trang web load xong thì gọi API
+  
     window.onload = loadGroups;
-
   </script>
-
 </body>
 </html>

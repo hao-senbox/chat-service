@@ -46,6 +46,7 @@ type Client struct {
 	send    chan []byte
 	userID  string
 	groupID string
+	token   string 
 }
 
 func (c *Client) readPump() {
