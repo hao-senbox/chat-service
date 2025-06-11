@@ -14,8 +14,8 @@ import (
 )
 
 type UserService interface {
-	GetUserInfor(userID string, token string) (*models.UserInfor, error)
-	GetUserOnline (ctx context.Context, userID string, token string) (*models.UserInfor, error)
+	GetUserInfor (ctx context.Context, userID string) (*models.UserInfor, error)
+	GetUserOnline (ctx context.Context, userID string) (*models.UserInfor, error)
 }
 
 type userService struct {
@@ -64,14 +64,14 @@ func NewServiceAPI(client *api.Client, serviceName string) *callAPI {
 	}
 }
 
-func (u *userService) GetUserOnline(ctx context.Context, userID string, token string) (*models.UserInfor, error) {
+func (u *userService) GetUserOnline(ctx context.Context, userID string) (*models.UserInfor, error) {
 
 	lastUserOnline, err := u.userOnlineRepo.GetUserOnline(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	userInfor, err := u.GetUserInfor(userID, token)
+	userInfor, err := u.GetUserInfor(ctx,userID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,9 +87,9 @@ func (u *userService) GetUserOnline(ctx context.Context, userID string, token st
 
 }
 
-func (u *userService) GetUserInfor(userID string, token string) (*models.UserInfor, error) {
-
-    data := u.client.GetUserInfor(userID, token)
+func (u *userService) GetUserInfor(ctx context.Context, userID string) (*models.UserInfor, error) {
+	
+    data := u.client.GetUserInfor(userID, ctx.Value("token").(string))
 	
     if data == nil {
         return nil, fmt.Errorf("no user data found for userID: %s", userID)
@@ -138,7 +138,7 @@ func (c *callAPI) GetUserInfor(userID string, token string) map[string]interface
 		"Content-Type": "application/json",
 		"Authorization": "Bearer " + token,
 	}
-	
+
 	res, err := c.client.CallAPI(c.clientServer, endpoint, http.MethodGet, nil, header)
 	if err != nil {
 		fmt.Printf("Error calling API: %v\n", err)

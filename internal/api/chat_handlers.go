@@ -65,9 +65,8 @@ func (h *ChatHandlers) GetGroupMessages(c *gin.Context) {
 
 func (h *ChatHandlers) IsUserInGroup(c *gin.Context) {
 
-	userID := c.Param("user_id")
 	groupID := c.Param("group_id")
-
+	userID := c.Value("user_id").(string)
 	if userID == "" || groupID == "" {
 		SendError(c, http.StatusBadRequest, fmt.Errorf("user ID or group ID be not empty"), models.ErrInvalidRequest)
 		return
@@ -122,7 +121,7 @@ func (h *ChatHandlers) DownloadGroupMessages(c *gin.Context) {
 
 func (h *ChatHandlers) GetUserInformation(c *gin.Context) {
 
-	userID := c.Param("user_id")
+	userID := c.Value("user_id").(string)
 
 	if userID == "" {
 		SendError(c, http.StatusBadRequest, fmt.Errorf("user ID be not empty"), models.ErrInvalidRequest)

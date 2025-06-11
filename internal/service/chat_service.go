@@ -156,7 +156,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 		if cached, ok := userCache[msg.SenderID]; ok {
 			userInfo = cached
 		} else {
-			fetchedInfo, err := s.userService.GetUserInfor(msg.SenderID)
+			fetchedInfo, err := s.userService.GetUserInfor(ctx, msg.SenderID)
 			if err != nil {
 				fmt.Printf("Failed to get user info for %s: %v\n", msg.SenderID, err)
 				fetchedInfo = &models.UserInfor{}
@@ -181,7 +181,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 				if cached, ok := userCache[userID]; ok {
 					react.UserReact[i].UserInfor = cached
 				} else {
-					fetchedInfo, err := s.userService.GetUserInfor(userID)
+					fetchedInfo, err := s.userService.GetUserInfor(ctx, userID)
 					if err != nil {
 						fmt.Printf("Failed to get user info for %s: %v\n", userID, err)
 						fetchedInfo = &models.UserInfor{}
