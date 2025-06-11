@@ -676,7 +676,7 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 
 	var totalAllReacts int64 = 0
 	reactedsUserIDs := make(map[string]bool)
-	ctxToken := h.createContextWithToken(senderClient)
+
 	// Process reacts concurrently
 	var wg sync.WaitGroup
 	for i := range reacts {
@@ -696,7 +696,7 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 						UserID:   user.UserID,
 						UserName: user.UserName,
 						Avartar:  user.Avartar,
-					}ctx := h.createContextWithToken(senderClient)
+					}
 				}(i, j, reacts[i].UserReact[j].UserID)
 			}
 		}
