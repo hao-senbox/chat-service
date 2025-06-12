@@ -62,7 +62,6 @@ type UserInfo struct {
 	LastFetch time.Time `json:"-"`
 }
 
-// Worker pool for handling goroutines
 type WorkerPool struct {
 	workers  int
 	taskChan chan func()
@@ -75,12 +74,11 @@ func NewWorkerPool(workers int) *WorkerPool {
 	ctx, cancel := context.WithCancel(context.Background())
 	wp := &WorkerPool{
 		workers:  workers,
-		taskChan: make(chan func(), 1000), // Buffered channel
+		taskChan: make(chan func(), 1000),
 		ctx:      ctx,
 		cancel:   cancel,
 	}
 
-	// Start workers
 	for i := 0; i < workers; i++ {
 		wp.wg.Add(1)
 		go wp.worker()
@@ -114,7 +112,6 @@ func (wp *WorkerPool) Submit(task func()) {
 	case <-wp.ctx.Done():
 		return
 	default:
-		// Channel is full, handle gracefully
 		log.Printf("Worker pool is busy, task dropped")
 	}
 }
@@ -138,21 +135,17 @@ type Hub struct {
 	userService      service.UserService
 	voteService      service.VoteService
 
-	// User cache with LRU-like behavior
 	userCache      map[string]*UserInfo
-	userCacheList  []string // For LRU tracking
+	userCacheList  []string
 	userCacheMutex sync.RWMutex
 	userCacheTTL   time.Duration
 	maxCacheSize   int
 
-	// Worker pool for async operations
 	workerPool *WorkerPool
 
-	// Rate limiting
 	rateLimiter map[string]*time.Ticker
 	rateMutex   sync.RWMutex
 
-	// Metrics
 	metrics struct {
 		activeConnections int64
 		messagesProcessed int64
@@ -160,7 +153,6 @@ type Hub struct {
 		mutex             sync.RWMutex
 	}
 
-	// Graceful shutdown
 	ctx    context.Context
 	cancel context.CancelFunc
 }
@@ -173,16 +165,15 @@ func NewHub(messageService service.ChatService,
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Calculate worker pool size based on CPU cores
 	workerCount := runtime.NumCPU() * 2
 	if workerCount < 4 {
 		workerCount = 4
 	}
 
 	return &Hub{
-		broadcast:      make(chan []byte, 1000), // Increased buffer
-		register:       make(chan *Client, 100), // Increased buffer
-		unregister:     make(chan *Client, 100), // Increased buffer
+		broadcast:      make(chan []byte, 1000),
+		register:       make(chan *Client, 100),
+		unregister:     make(chan *Client, 100),
 		rooms:          make(map[string]map[*Client]bool),
 		onlineUsers:    make(map[string]map[string]bool),
 		messageService: messageService,
@@ -194,7 +185,7 @@ func NewHub(messageService service.ChatService,
 		userCache:     make(map[string]*UserInfo),
 		userCacheList: make([]string, 0),
 		userCacheTTL:  24 * time.Hour,
-		maxCacheSize:  10000, // Limit cache size
+		maxCacheSize:  10000,
 
 		workerPool:  NewWorkerPool(workerCount),
 		rateLimiter: make(map[string]*time.Ticker),
@@ -204,13 +195,11 @@ func NewHub(messageService service.ChatService,
 	}
 }
 
-// Improved cache with LRU eviction
 func (h *Hub) createContextWithToken(client *Client) context.Context {
 	ctx := context.Background()
 	return context.WithValue(ctx, "token", client.token)
 }
 
-// Updated getUserInfo method để nhận context
 func (h *Hub) getUserInfoWithContext(ctx context.Context, userID string) (*UserInfo, error) {
 	h.userCacheMutex.RLock()
 	if userInfo, ok := h.userCache[userID]; ok {
@@ -221,17 +210,14 @@ func (h *Hub) getUserInfoWithContext(ctx context.Context, userID string) (*UserI
 	}
 	h.userCacheMutex.RUnlock()
 
-	// Fetch from service với context chứa token
 	userInfo, err := h.userService.GetUserInfor(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch user info: %v", err)
 	}
 
-	// Update cache with LRU eviction
 	h.userCacheMutex.Lock()
 	defer h.userCacheMutex.Unlock()
 
-	// Remove from old position if exists
 	for i, id := range h.userCacheList {
 		if id == userID {
 			h.userCacheList = append(h.userCacheList[:i], h.userCacheList[i+1:]...)
@@ -239,12 +225,10 @@ func (h *Hub) getUserInfoWithContext(ctx context.Context, userID string) (*UserI
 		}
 	}
 
-	// Add to front
 	h.userCacheList = append([]string{userID}, h.userCacheList...)
 
-	// Evict if cache is too large
 	if len(h.userCacheList) > h.maxCacheSize {
-		// Remove oldest entries
+
 		for i := h.maxCacheSize; i < len(h.userCacheList); i++ {
 			delete(h.userCache, h.userCacheList[i])
 		}
@@ -261,10 +245,10 @@ func (h *Hub) getUserInfoWithContext(ctx context.Context, userID string) (*UserI
 	return h.userCache[userID], nil
 }
 
-// Debounced online users update
+
 func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client) {
 	h.workerPool.Submit(func() {
-		// Add small delay to batch updates
+
 		time.Sleep(100 * time.Millisecond)
 
 		h.onlineUsersMutex.RLock()
@@ -276,7 +260,6 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client)
 		if userMap, ok := h.onlineUsers[groupID]; ok {
 			onlineCount = len(userMap)
 			ctx := h.createContextWithToken(clientForToken)
-			// Use worker pool to fetch user info concurrently
 			userInfoChan := make(chan *models.UserInfor, onlineCount)
 			var wg sync.WaitGroup
 
@@ -297,13 +280,11 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client)
 				}(userID)
 			}
 
-			// Close channel when all goroutines finish
 			go func() {
 				wg.Wait()
 				close(userInfoChan)
 			}()
 
-			// Collect results
 			for user := range userInfoChan {
 				onlineUsersList = append(onlineUsersList, user)
 			}
@@ -327,9 +308,9 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client)
 }
 
 func (h *Hub) Run() {
+
 	defer h.workerPool.Stop()
 
-	// Cleanup ticker for rate limiters
 	cleanupTicker := time.NewTicker(5 * time.Minute)
 	defer cleanupTicker.Stop()
 
@@ -355,6 +336,7 @@ func (h *Hub) Run() {
 }
 
 func (h *Hub) handleClientRegister(client *Client) {
+
 	h.roomsMutex.Lock()
 	if _, ok := h.rooms[client.groupID]; !ok {
 		h.rooms[client.groupID] = make(map[*Client]bool)
@@ -369,14 +351,12 @@ func (h *Hub) handleClientRegister(client *Client) {
 	h.onlineUsers[client.groupID][client.userID] = true
 	h.onlineUsersMutex.Unlock()
 
-	// Update metrics
 	h.metrics.mutex.Lock()
 	h.metrics.activeConnections++
 	h.metrics.mutex.Unlock()
 
 	log.Printf("Client %s connected to group %s", client.userID, client.groupID)
 
-	// Preload user info asynchronously
 	h.workerPool.Submit(func() {
 		ctx := h.createContextWithToken(client)
 		_, _ = h.getUserInfoWithContext(ctx, client.userID)
@@ -440,7 +420,6 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 		return
 	}
 
-	// Rate limiting check
 	if !h.checkRateLimit(msg.SenderID) {
 		log.Printf("Rate limit exceeded for user %s", msg.SenderID)
 		return
@@ -463,7 +442,6 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 		return
 	}
 
-	// Get user info asynchronously
 	h.workerPool.Submit(func() {
 		ctx := h.createContextWithToken(senderClient)
 		userInfo, err := h.getUserInfoWithContext(ctx, msg.SenderID)
@@ -492,7 +470,6 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 	})
 }
 
-// Rate limiting
 func (h *Hub) checkRateLimit(userID string) bool {
 	h.rateMutex.Lock()
 	defer h.rateMutex.Unlock()
@@ -535,7 +512,6 @@ func (h *Hub) cleanupRateLimiters() {
 	}
 }
 
-// Message handlers with better error handling and context
 func (h *Hub) saveAndBroadcastMessage(msg Message) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -581,7 +557,6 @@ func (h *Hub) saveAndBroadcastMessage(msg Message) {
 	h.sendToGroup(msg.GroupID, updatedMessage)
 }
 
-// Similar improvements for other message handlers...
 func (h *Hub) editAndBroadcastMessage(msg Message) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -650,8 +625,23 @@ func (h *Hub) deleteAndBroadcastMessage(msg Message) {
 }
 
 func (h *Hub) reactAndBroadcastMessage(msg Message) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+
+	var senderClient *Client
+	h.roomsMutex.RLock()
+	if clients, ok := h.rooms[msg.GroupID]; ok {
+		for client := range clients {
+			if client.userID == msg.SenderID {
+				senderClient = client
+				break
+			}
+		}
+	}
+	h.roomsMutex.RUnlock()
+	ctx := h.createContextWithToken(senderClient)
+	if senderClient == nil {
+		log.Printf("Could not find sender client for user %s", msg.SenderID)
+		return
+	}
 
 	err := h.messageService.InsertMessageReact(ctx, msg.ID, msg.GroupID, msg.SenderID, msg.ReactType)
 	if err != nil {
@@ -677,7 +667,6 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 	var totalAllReacts int64 = 0
 	reactedsUserIDs := make(map[string]bool)
 
-	// Process reacts concurrently
 	var wg sync.WaitGroup
 	for i := range reacts {
 		totalAllReacts += reacts[i].TotalReact
@@ -687,7 +676,7 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 				wg.Add(1)
 				go func(reactIdx, userIdx int, userID string) {
 					defer wg.Done()
-					user, err := h.userService.GetUserInfor(context.Background(), userID)
+					user, err := h.userService.GetUserInfor(ctx, msg.SenderID)
 					if err != nil {
 						log.Printf("Error getting user info: %v", err)
 						return
@@ -826,27 +815,23 @@ func (h *Hub) sendToGroup(groupID string, message []byte) {
 		for client := range clients {
 			select {
 			case client.send <- message:
-				// Message sent successfully
 			default:
-				// Client's send channel is blocked or closed
 				deadClients = append(deadClients, client)
 			}
 		}
 
-		// Clean up dead clients
 		for _, client := range deadClients {
 			go func(c *Client) {
 				select {
 				case h.unregister <- c:
 				default:
-					// Unregister channel is full, will be handled later
+
 				}
 			}(client)
 		}
 	}
 }
 
-// Metrics methods
 func (h *Hub) incrementProcessedCount() {
 	h.metrics.mutex.Lock()
 	h.metrics.messagesProcessed++
@@ -865,11 +850,8 @@ func (h *Hub) GetMetrics() (int64, int64, int64) {
 	return h.metrics.activeConnections, h.metrics.messagesProcessed, h.metrics.errors
 }
 
-// Graceful shutdown
 func (h *Hub) Shutdown() {
 	h.cancel()
-
-	// Clean up rate limiters
 	h.rateMutex.Lock()
 	for _, ticker := range h.rateLimiter {
 		ticker.Stop()
