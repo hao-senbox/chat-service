@@ -3,10 +3,14 @@ package api
 import (
 	"chat-service/internal/models"
 	"chat-service/internal/service"
+	"chat-service/pkg/constants"
+	"context"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
 	"time"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -44,7 +48,14 @@ func (h *ChatHandlers) GetGroupMessages(c *gin.Context) {
 		return
 	}
 
-	messages, totalItems, err := h.chatService.GetGroupMessages(c, groupID, nil, nil, &req)
+	token, ok := c.Get(constants.Token)
+	if !ok {
+		SendError(c, http.StatusForbidden, errors.New("unauthorized"), models.ErrInvalidRequest)
+		return
+	}
+
+	ctx := context.WithValue(c, constants.TokenKey, token)
+	messages, totalItems, err := h.chatService.GetGroupMessages(ctx, groupID, nil, nil, &req)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return
@@ -123,12 +134,20 @@ func (h *ChatHandlers) GetUserInformation(c *gin.Context) {
 
 	userID := c.Value("user_id").(string)
 
+	token, ok := c.Get(constants.Token)
+	if !ok {
+		SendError(c, http.StatusForbidden, errors.New("unauthorized"), models.ErrInvalidRequest)
+		return
+	}
+
+	ctx := context.WithValue(c, constants.TokenKey, token)
+	
 	if userID == "" {
 		SendError(c, http.StatusBadRequest, fmt.Errorf("user ID be not empty"), models.ErrInvalidRequest)
 		return
 	}
 
-	user, err := h.chatService.GetUserInformation(c, userID)
+	user, err := h.chatService.GetUserInformation(ctx, userID)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return

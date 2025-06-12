@@ -3,6 +3,7 @@ package api
 import (
 	"chat-service/internal/models"
 	"chat-service/internal/service"
+	"chat-service/pkg/constants"
 	"fmt"
 	"net/http"
 	"strings"
@@ -53,12 +54,39 @@ func Secured() gin.HandlerFunc {
 		token, _, _ := new(jwt.Parser).ParseUnverified(tokenString, jwt.MapClaims{})
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			if userId, ok := claims["user_id"].(string); ok {
-				context.Set("user_id", userId)
+			if userId, ok := claims[constants.UserID].(string); ok {
+				context.Set(constants.UserID, userId)
 			}
 		}
 
-		context.Set("token", tokenString)
+		context.Set(constants.Token, tokenString)
 		context.Next()
+	}
+}
+
+func WebsocketSecured() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Lấy token từ query parameter (vì WebSocket không support custom headers)
+		token := c.Query(constants.Token)
+
+		// Nếu không có token trong query, thử lấy từ Authorization header
+		if len(token) == 0 {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+
+		t, _, _ := new(jwt.Parser).ParseUnverified(token, jwt.MapClaims{})
+
+		if claims, ok := t.Claims.(jwt.MapClaims); ok {
+			if userId, ok := claims[constants.UserID].(string); ok {
+				c.Set(constants.UserID, userId)
+			} else {
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
+		}
+
+		c.Set(constants.Token, token)
+		c.Next()
 	}
 }

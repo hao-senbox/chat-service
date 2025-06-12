@@ -3,6 +3,9 @@ package api
 import (
 	"chat-service/internal/models"
 	"chat-service/internal/service"
+	"chat-service/pkg/constants"
+	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,8 +22,14 @@ func NewGroupService(groupService service.GroupService) *GroupHandlers {
 }
 
 func (h *GroupHandlers) GetAllGroups(c *gin.Context) {
-	
-	groups, err := h.groupService.GetAllGroups(c)
+	token, ok := c.Get(constants.Token)
+	if !ok {
+		SendError(c, http.StatusForbidden, errors.New("unauthorized"), models.ErrInvalidRequest)
+		return
+	}
+
+	ctx := context.WithValue(c, constants.TokenKey, token)
+	groups, err := h.groupService.GetAllGroups(ctx)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return
@@ -38,7 +47,14 @@ func (h *GroupHandlers) GetGroupDetail(c *gin.Context) {
 		return
 	}
 
-	group, err := h.groupService.GetGroupDetail(c, groupID)
+	token, ok := c.Get(constants.Token)
+	if !ok {
+		SendError(c, http.StatusForbidden, errors.New("unauthorized"), models.ErrInvalidRequest)
+		return
+	}
+
+	ctx := context.WithValue(c, constants.TokenKey, token)
+	group, err := h.groupService.GetGroupDetail(ctx, groupID)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return

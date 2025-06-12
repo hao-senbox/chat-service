@@ -105,25 +105,15 @@ const (
 	MinimumUsageTime = "minimum_usage_time"
 	MaximumUsageTime = "maximum_usage_time"
 
-	SBCode    = "sb_code"
-	QRCode    = "qr_code"
-	Status    = "status"
-	IsDeleted = "is_deleted"
-	DeletedAt = "deleted_at"
-	IsExpired = "is_expired"
-	ExpiredAt = "expired_at"
-	CreatedAt = "created_at"
-	UpdatedAt = "updated_at"
+	UserID = "user_id"
+)
 
-	CategoryId   = "_id"
-	CategoryName = "category_name"
-	ParentID     = "parent_id"
-	Parent       = "parent"
+type contextKey string
 
-	TopicId   = "_id"
-	TopicName = "topic_name"
+func (c contextKey) String() string {
+	return string(c)
+}
 
-	HistoryID = "_id"
-	ProductID = "product_id"
-	UserID    = "user_id"
+var (
+	TokenKey = contextKey("token")
 )

@@ -3,7 +3,6 @@ package socket
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -46,7 +45,7 @@ type Client struct {
 	send    chan []byte
 	userID  string
 	groupID string
-	token   string 
+	token   string
 }
 
 func (c *Client) readPump() {
@@ -79,7 +78,7 @@ func (c *Client) readPump() {
 			}
 			continue
 		}
-		fmt.Printf("Message from client %s: %s\n", c.userID, message)
+
 		c.hub.broadcast <- bytes.TrimSpace(bytes.Replace(message, newLine, space, -1))
 	}
 }
