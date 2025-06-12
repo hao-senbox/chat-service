@@ -8,7 +8,7 @@ import (
 )
 
 func RegisterSocketRouters(r *gin.Engine, hub *socket.Hub, chatService service.ChatService) {
-	r.GET("/ws/:user_id/:group_id", UserInGroupMiddleware(chatService), socket.ServeWsGin(hub))
+	r.GET("/ws/:group_id", socket.ServeWsGin(hub))
 }
 
 func RegisterChatRouters(r *gin.Engine, chatService service.ChatService) {

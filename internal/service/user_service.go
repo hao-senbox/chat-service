@@ -88,8 +88,11 @@ func (u *userService) GetUserOnline(ctx context.Context, userID string) (*models
 }
 
 func (u *userService) GetUserInfor(ctx context.Context, userID string) (*models.UserInfor, error) {
-	
-    data := u.client.GetUserInfor(userID, ctx.Value("token").(string))
+
+    data, err := u.client.GetUserInfor(userID, ctx.Value("token").(string))
+	if err != nil {
+		return nil, err
+	}
 	
     if data == nil {
         return nil, fmt.Errorf("no user data found for userID: %s", userID)
@@ -131,7 +134,8 @@ func safeString(val interface{}) string {
 }
 
 
-func (c *callAPI) GetUserInfor(userID string, token string) map[string]interface{} {
+func (c *callAPI) GetUserInfor(userID string, token string) (map[string]interface{}, error) {
+	
 	endpoint := fmt.Sprintf("/v1/user/%s", userID)
 
 	header := map[string]string{
@@ -142,17 +146,17 @@ func (c *callAPI) GetUserInfor(userID string, token string) map[string]interface
 	res, err := c.client.CallAPI(c.clientServer, endpoint, http.MethodGet, nil, header)
 	if err != nil {
 		fmt.Printf("Error calling API: %v\n", err)
-		return nil
+		return nil, err
 	}
 
 	var userData interface{}
 	err = json.Unmarshal([]byte(res), &userData)
 	if err != nil {
 		fmt.Printf("Error unmarshalling response: %v\n", err)
-		return nil
+		return nil, err
 	}
 
 	myMap := userData.(map[string]interface{})
 
-	return myMap
+	return myMap, nil
 }

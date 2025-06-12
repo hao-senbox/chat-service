@@ -90,20 +90,16 @@ func main() {
 	api.RegisterGroupRouters(router, groupService)
 	api.RegisterChatRouters(router, messageService)
 
-	router.GET("/:user_id", func(c *gin.Context) {
-		userID := c.Param("user_id")
+	router.GET("/", func(c *gin.Context) {
 		c.HTML(http.StatusOK ,"home.html", gin.H{
-			"userID": userID,
 		})
 	})
 
-	router.GET("/chat/:user_id/:group_id", func(c *gin.Context) {
-		userID := c.Param("user_id")
+	router.GET("/chat/:group_id", func(c *gin.Context) {
 		groupID := c.Param("group_id")
 		
 		// Pass these values to the template
 		c.HTML(http.StatusOK, "chat.html", gin.H{
-			"userID": userID,
 			"groupID": groupID,
 			"title": "Group Chat",
 		})
