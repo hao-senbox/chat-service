@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"chat-service/internal/models"
 	"chat-service/internal/repository"
+	"chat-service/pkg/constants"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -158,7 +160,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 		} else {
 			fetchedInfo, err := s.userService.GetUserInfor(ctx, msg.SenderID)
 			if err != nil {
-				fmt.Printf("Failed to get user info for %s: %v\n", msg.SenderID, err)
+				fmt.Printf("(ChatService) 1 - Failed to get user info for %s: %v\n", msg.SenderID, err)
 				fetchedInfo = &models.UserInfor{}
 			}
 			userInfo = &models.UserInfor{
@@ -183,7 +185,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 				} else {
 					fetchedInfo, err := s.userService.GetUserInfor(ctx, userID)
 					if err != nil {
-						fmt.Printf("Failed to get user info for %s: %v\n", userID, err)
+						fmt.Printf("(ChatService) 2 - Failed to get user info for %s: %v\n", userID, err)
 						fetchedInfo = &models.UserInfor{}
 					}
 					react.UserReact[i].UserInfor = &models.UserInfor{
@@ -226,13 +228,19 @@ func (s *chatService) IsUserInGroup(ctx context.Context, userID string, groupID 
 }
 
 func (s *chatService) DownloadGroupMessages(ctx *gin.Context, groupID string, from *time.Time, to *time.Time) error {
+	token, ok := ctx.Get(constants.Token)
+	if !ok {
+		return errors.New("need to be login")
+	}
 
-	_, err := s.groupService.GetGroupDetail(ctx, groupID)
+	c := context.WithValue(ctx, constants.TokenKey, token)
+
+	_, err := s.groupService.GetGroupDetail(c, groupID)
 	if err != nil {
 		return err
 	}
 
-	messages, _, err := s.GetGroupMessages(ctx, groupID, from, to, nil)
+	messages, _, err := s.GetGroupMessages(c, groupID, from, to, nil)
 	if err != nil {
 		return err
 	}

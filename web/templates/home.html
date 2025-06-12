@@ -36,8 +36,8 @@
 
   <script>
     const userId =  "{{ .userID }}";  
-    // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMzMDE0MzksIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiIzMmQyODg1MC00NzQzLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6Im1lc3NpIn0.mQkUPfb87TpNznRkOW5TaC_xZni2oeAtH6VL0LdThR4';
-    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMyMTE1MzUsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiJlMDFlY2NkYS00NjcxLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvXzEifQ.sPU_SwbuQK2vQDAZr9WwD9bofKKGt3VvYQDQ9ddhzSg';
+    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMzMDE0MzksIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiIzMmQyODg1MC00NzQzLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6Im1lc3NpIn0.mQkUPfb87TpNznRkOW5TaC_xZni2oeAtH6VL0LdThR4';
+    // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMyMTE1MzUsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiJlMDFlY2NkYS00NjcxLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvXzEifQ.sPU_SwbuQK2vQDAZr9WwD9bofKKGt3VvYQDQ9ddhzSg';
     async function loadGroups() {
       try {
         const response = await fetch('/api/v1/group/user', {

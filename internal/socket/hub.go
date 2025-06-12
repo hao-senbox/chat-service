@@ -4,14 +4,16 @@ import (
 	"chat-service/internal/models"
 	"chat-service/internal/repository"
 	"chat-service/internal/service"
+	"chat-service/pkg/constants"
 	"context"
 	"encoding/json"
 	"fmt"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"runtime"
 	"sync"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Message struct {
@@ -157,7 +159,7 @@ type Hub struct {
 	cancel context.CancelFunc
 }
 
-func NewHub(messageService service.ChatService, 
+func NewHub(messageService service.ChatService,
 	userService service.UserService,
 	userOnlineRepo repository.UserOnlineRepository,
 	groupService service.GroupService,
@@ -193,11 +195,6 @@ func NewHub(messageService service.ChatService,
 		ctx:    ctx,
 		cancel: cancel,
 	}
-}
-
-func (h *Hub) createContextWithToken(client *Client) context.Context {
-	ctx := context.Background()
-	return context.WithValue(ctx, "token", client.token)
 }
 
 func (h *Hub) getUserInfoWithContext(ctx context.Context, userID string) (*UserInfo, error) {
@@ -245,7 +242,6 @@ func (h *Hub) getUserInfoWithContext(ctx context.Context, userID string) (*UserI
 	return h.userCache[userID], nil
 }
 
-
 func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client) {
 	h.workerPool.Submit(func() {
 
@@ -259,7 +255,7 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client)
 
 		if userMap, ok := h.onlineUsers[groupID]; ok {
 			onlineCount = len(userMap)
-			ctx := h.createContextWithToken(clientForToken)
+			ctx := context.WithValue(context.Background(), constants.TokenKey, clientForToken.token)
 			userInfoChan := make(chan *models.UserInfor, onlineCount)
 			var wg sync.WaitGroup
 
@@ -269,7 +265,7 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client)
 					defer wg.Done()
 					userInfo, err := h.getUserInfoWithContext(ctx, uid)
 					if err != nil {
-						log.Printf("Failed to get user info for %s: %v\n", uid, err)
+						log.Printf("(Hub) 1 - Failed to get user info for )%s: %v\n", uid, err)
 						return
 					}
 					userInfoChan <- &models.UserInfor{
@@ -358,7 +354,7 @@ func (h *Hub) handleClientRegister(client *Client) {
 	log.Printf("Client %s connected to group %s", client.userID, client.groupID)
 
 	h.workerPool.Submit(func() {
-		ctx := h.createContextWithToken(client)
+		ctx := context.WithValue(context.Background(), constants.TokenKey, client.token)
 		_, _ = h.getUserInfoWithContext(ctx, client.userID)
 	})
 
@@ -371,7 +367,7 @@ func (h *Hub) handleClientUnregister(client *Client) {
 		if _, found := clients[client]; found {
 			// Save user online status asynchronously
 			h.workerPool.Submit(func() {
-				ctx := h.createContextWithToken(client)
+				ctx := context.WithValue(context.Background(), constants.TokenKey, client.token)
 				err := h.userOnlineRepo.SaveUserOnline(ctx, &models.UserOnline{
 					UserID:     client.userID,
 					LastOnline: time.Now(),
@@ -443,12 +439,12 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 	}
 
 	h.workerPool.Submit(func() {
-		ctx := h.createContextWithToken(senderClient)
+		ctx := context.WithValue(context.Background(), constants.TokenKey, senderClient.token)
 		userInfo, err := h.getUserInfoWithContext(ctx, msg.SenderID)
 		if err == nil {
 			msg.SenderInfo = userInfo
 		} else {
-			log.Printf("Failed to get user info for %s: %v\n", msg.SenderID, err)
+			log.Printf("(Hub) 2 - Failed to get user info for %s: %v\n", msg.SenderID, err)
 		}
 
 		switch msg.Type {
@@ -637,7 +633,7 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 		}
 	}
 	h.roomsMutex.RUnlock()
-	ctx := h.createContextWithToken(senderClient)
+	ctx := context.WithValue(context.Background(), constants.TokenKey, senderClient.token)
 	if senderClient == nil {
 		log.Printf("Could not find sender client for user %s", msg.SenderID)
 		return

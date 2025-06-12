@@ -3,6 +3,7 @@ package service
 import (
 	"chat-service/internal/models"
 	"chat-service/internal/repository"
+	"chat-service/pkg/constants"
 	"chat-service/pkg/consul"
 	"context"
 	"encoding/json"
@@ -14,13 +15,13 @@ import (
 )
 
 type UserService interface {
-	GetUserInfor (ctx context.Context, userID string) (*models.UserInfor, error)
-	GetUserOnline (ctx context.Context, userID string) (*models.UserInfor, error)
+	GetUserInfor(ctx context.Context, userID string) (*models.UserInfor, error)
+	GetUserOnline(ctx context.Context, userID string) (*models.UserInfor, error)
 }
 
 type userService struct {
 	userOnlineRepo repository.UserOnlineRepository
-	client *callAPI
+	client         *callAPI
 }
 
 type callAPI struct {
@@ -36,7 +37,7 @@ func NewUserService(client *api.Client, userOnlineRepo repository.UserOnlineRepo
 	mainServiceAPI := NewServiceAPI(client, mainService)
 	return &userService{
 		userOnlineRepo: userOnlineRepo,
-		client: mainServiceAPI,
+		client:         mainServiceAPI,
 	}
 }
 
@@ -54,9 +55,9 @@ func NewServiceAPI(client *api.Client, serviceName string) *callAPI {
 	}
 
 	if os.Getenv("LOCAL_TEST") == "true" {
-        fmt.Println("Running in LOCAL_TEST mode — overriding service address to localhost")
-        service.ServiceAddress = "localhost"
-    }
+		fmt.Println("Running in LOCAL_TEST mode — overriding service address to localhost")
+		service.ServiceAddress = "localhost"
+	}
 
 	return &callAPI{
 		client:       sd,
@@ -71,7 +72,7 @@ func (u *userService) GetUserOnline(ctx context.Context, userID string) (*models
 		return nil, err
 	}
 
-	userInfor, err := u.GetUserInfor(ctx,userID)
+	userInfor, err := u.GetUserInfor(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -88,58 +89,60 @@ func (u *userService) GetUserOnline(ctx context.Context, userID string) (*models
 }
 
 func (u *userService) GetUserInfor(ctx context.Context, userID string) (*models.UserInfor, error) {
+	token, ok := ctx.Value(constants.TokenKey).(string)
+	if !ok {
+		return nil, fmt.Errorf("token not found in context")
+	}
 
-    data, err := u.client.GetUserInfor(userID, ctx.Value("token").(string))
+	data, err := u.client.GetUserInfor(userID, token)
 	if err != nil {
 		return nil, err
 	}
-	
-    if data == nil {
-        return nil, fmt.Errorf("no user data found for userID: %s", userID)
-    }
 
-    innerData, ok := data["data"].(map[string]interface{})
-    if !ok {
-        return nil, fmt.Errorf("invalid response format: missing 'data' field")
-    }
+	if data == nil {
+		return nil, fmt.Errorf("no user data found for userID: %s", userID)
+	}
 
-    var roleName string
-    rolesRaw, ok := innerData["roles"].([]interface{})
-    if ok && len(rolesRaw) > 0 {
-        firstRole, ok := rolesRaw[0].(map[string]interface{})
-        if ok {
-            roleName = safeString(firstRole["role_name"])
-        }
-    }
+	innerData, ok := data["data"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("invalid response format: missing 'data' field")
+	}
 
-    return &models.UserInfor{
-        UserID:   safeString(innerData["id"]),
-        UserName: safeString(innerData["username"]),
-        FullName: safeString(innerData["fullname"]),
-        Avartar:  safeString(innerData["avatar"]),
-        Role:     roleName,
-    }, nil
+	var roleName string
+	rolesRaw, ok := innerData["roles"].([]interface{})
+	if ok && len(rolesRaw) > 0 {
+		firstRole, ok := rolesRaw[0].(map[string]interface{})
+		if ok {
+			roleName = safeString(firstRole["role_name"])
+		}
+	}
+
+	return &models.UserInfor{
+		UserID:   safeString(innerData["id"]),
+		UserName: safeString(innerData["username"]),
+		FullName: safeString(innerData["fullname"]),
+		Avartar:  safeString(innerData["avatar"]),
+		Role:     roleName,
+	}, nil
 }
-
 
 func safeString(val interface{}) string {
-    if val == nil {
-        return ""
-    }
-    str, ok := val.(string)
-    if !ok {
-        return ""
-    }
-    return str
+	if val == nil {
+		return ""
+	}
+	str, ok := val.(string)
+	if !ok {
+		return ""
+	}
+	return str
 }
 
-
 func (c *callAPI) GetUserInfor(userID string, token string) (map[string]interface{}, error) {
-	
+
 	endpoint := fmt.Sprintf("/v1/user/%s", userID)
 
 	header := map[string]string{
-		"Content-Type": "application/json",
+		"Content-Type":  "application/json",
 		"Authorization": "Bearer " + token,
 	}
 
