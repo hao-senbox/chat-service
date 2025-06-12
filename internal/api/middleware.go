@@ -66,10 +66,9 @@ func Secured() gin.HandlerFunc {
 
 func WebsocketSecured() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Lấy token từ query parameter (vì WebSocket không support custom headers)
+		
 		token := c.Query(constants.Token)
 
-		// Nếu không có token trong query, thử lấy từ Authorization header
 		if len(token) == 0 {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
