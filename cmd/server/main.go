@@ -85,27 +85,26 @@ func main() {
 	go hub.Run()
 	// Set up router with Gin
 	router := gin.Default()
-	router.LoadHTMLGlob("web/templates/*")
+	// router.LoadHTMLGlob("web/templates/*")
 	api.RegisterSocketRouters(router, hub, messageService)
 	api.RegisterGroupRouters(router, groupService)
 	api.RegisterChatRouters(router, messageService)
 
-	router.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK ,"home.html", gin.H{
-		})
-	})
+	// router.GET("/", func(c *gin.Context) {
+	// 	c.HTML(http.StatusOK ,"home.html", gin.H{
+	// 	})
+	// })
 
-	router.GET("/chat/:group_id", func(c *gin.Context) {
-		groupID := c.Param("group_id")
+	// router.GET("/chat/:group_id", func(c *gin.Context) {
+	// 	groupID := c.Param("group_id")
 		
-		// Pass these values to the template
-		c.HTML(http.StatusOK, "chat.html", gin.H{
-			"groupID": groupID,
-			"title": "Group Chat",
-		})
-	})
-	// Register handlers
-	// api.RegisterHandlers(router, portalService)
+	// 	// Pass these values to the template
+	// 	c.HTML(http.StatusOK, "chat.html", gin.H{
+	// 		"groupID": groupID,
+	// 		"title": "Group Chat",
+	// 	})
+	// })
+
 
 	// Initialize HTTP server
 	server := &http.Server{
