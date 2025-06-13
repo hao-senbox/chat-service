@@ -633,11 +633,13 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 		}
 	}
 	h.roomsMutex.RUnlock()
-	ctx := context.WithValue(context.Background(), constants.TokenKey, senderClient.token)
+
 	if senderClient == nil {
 		log.Printf("Could not find sender client for user %s", msg.SenderID)
 		return
 	}
+	
+	ctx := context.WithValue(context.Background(), constants.TokenKey, senderClient.token)
 
 	err := h.messageService.InsertMessageReact(ctx, msg.ID, msg.GroupID, msg.SenderID, msg.ReactType)
 	if err != nil {
