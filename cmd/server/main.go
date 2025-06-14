@@ -85,11 +85,10 @@ func main() {
 	go hub.Run()
 	// Set up router with Gin
 	router := gin.Default()
-	// router.LoadHTMLGlob("web/templates/*")
 	api.RegisterSocketRouters(router, hub, messageService)
 	api.RegisterGroupRouters(router, groupService)
 	api.RegisterChatRouters(router, messageService)
-
+	// router.LoadHTMLGlob("web/templates/*")
 	// router.GET("/", func(c *gin.Context) {
 	// 	c.HTML(http.StatusOK ,"home.html", gin.H{
 	// 	})

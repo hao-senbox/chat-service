@@ -711,8 +711,8 @@
             const maxReconnectAttempts = 5;
             let currentReconnectDelay = 500; // ms
             const maxReconnectDelay = 30000; // 30s
-            // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMzMDE0MzksIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiIzMmQyODg1MC00NzQzLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6Im1lc3NpIn0.mQkUPfb87TpNznRkOW5TaC_xZni2oeAtH6VL0LdThR4';
-            const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMyOTc2MDUsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiI0NWY3N2FjYS00NzNhLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvXzIifQ.J33y9u4Oqx5uX-kpQwiuGis7HKiZ_8Mn6rrdGCiMUHs'
+            const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMzMDE0MzksIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiIzMmQyODg1MC00NzQzLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6Im1lc3NpIn0.mQkUPfb87TpNznRkOW5TaC_xZni2oeAtH6VL0LdThR4';
+            // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMyOTc2MDUsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiI0NWY3N2FjYS00NzNhLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvXzIifQ.J33y9u4Oqx5uX-kpQwiuGis7HKiZ_8Mn6rrdGCiMUHs'
             // Cấu hình heartbeat
             let heartbeatInterval = null;
             const heartbeatTime = 55000; // 55s
@@ -780,7 +780,7 @@
 
                 // Gửi ảnh lên server
                 $.ajax({
-                    url: "http://localhost:8080/v1/images/upload",
+                    url: "http://localhost:8001/v1/images/upload",
                     method: "POST",
                     headers: {
                         "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTI4NjUxNjksInJvbGVzIjoiU3VwZXJBZG1pbiIsInVzZXJfaWQiOiI2ZGQzYzJkNS00MzRiLTExZjAtOTBkNS0wMjQyYzBhODYwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvIn0.px_AQhEOYo_QqTOYMSvTxdfX1aV8TiCx3g7OPqOd1HQ"
@@ -1396,7 +1396,7 @@
 
                         // Lấy URL ảnh từ API
                         $.ajax({
-                            url: `http://localhost:8080/v1/images/`,
+                            url: `http://localhost:8001/v1/images/`,
                             method: "POST",
                             headers: {
                                 "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTI4NjUxNjksInJvbGVzIjoiU3VwZXJBZG1pbiIsInVzZXJfaWQiOiI2ZGQzYzJkNS00MzRiLTExZjAtOTBkNS0wMjQyYzBhODYwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvIn0.px_AQhEOYo_QqTOYMSvTxdfX1aV8TiCx3g7OPqOd1HQ"
