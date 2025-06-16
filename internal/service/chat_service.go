@@ -18,7 +18,7 @@ import (
 )
 
 type ChatService interface {
-	GetGroupMessages(ctx context.Context, groupID string, from *time.Time, to *time.Time, pagination *models.Panigination) ([]*models.MessageWithUser, int64, error)
+	GetGroupMessages(ctx context.Context, groupID string, userID *string, from *time.Time, to *time.Time, pagination *models.Panigination) ([]*models.MessageWithUser, int64, error)
 	IsUserInGroup(ctx context.Context, userID string, groupID string) (bool, error)
 	DownloadGroupMessages(ctx *gin.Context, groupID string, from *time.Time, to *time.Time) error
 	GetUserInformation(ctx context.Context, userID string) (*models.UserInfor, error)
@@ -137,8 +137,7 @@ func (s *chatService) SaveMessage(ctx context.Context, message *models.Message) 
 	return s.messagesRepository.SaveMessage(ctx, message)
 }
 
-func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from *time.Time, to *time.Time, pagination *models.Panigination) ([]*models.MessageWithUser, int64, error) {
-
+func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, userID *string, from *time.Time, to *time.Time, pagination *models.Panigination) ([]*models.MessageWithUser, int64, error) {
 	objectID, err := primitive.ObjectIDFromHex(groupID)
 	if err != nil {
 		return nil, 0, err
@@ -150,7 +149,6 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 	}
 
 	var enrichedMessages []*models.MessageWithUser
-
 	userCache := make(map[string]*models.UserInfor)
 
 	for _, msg := range messages {
@@ -175,25 +173,44 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 		if err != nil {
 			return nil, 0, err
 		}
-
-		for _, react := range reacts {
-			for i := range react.UserReact {
-				userID := react.UserReact[i].UserID
-
-				if cached, ok := userCache[userID]; ok {
-					react.UserReact[i].UserInfor = cached
-				} else {
-					fetchedInfo, err := s.userService.GetUserInfor(ctx, userID)
-					if err != nil {
-						fmt.Printf("(ChatService) 2 - Failed to get user info for %s: %v\n", userID, err)
-						fetchedInfo = &models.UserInfor{}
+		isUnread := true
+		if msg.SenderID == *userID {
+			isUnread = false
+		} else {
+			for _, react := range reacts {
+				for _, userReact := range react.UserReact {
+					if userReact.UserID == *userID {
+						isUnread = false
+						break
 					}
-					react.UserReact[i].UserInfor = &models.UserInfor{
-						UserID:   fetchedInfo.UserID,
-						UserName: fetchedInfo.UserName,
-						Avartar:  fetchedInfo.Avartar,
+				}
+				if !isUnread {
+					break
+				}
+			}
+		}
+
+		if len(reacts) == 0 {
+			reacts = []*models.MessageReact{}
+		} else {
+			for _, react := range reacts {
+				react.UserID = msg.SenderID
+				for i := range react.UserReact {
+					userID := react.UserReact[i].UserID
+					if cached, ok := userCache[userID]; ok {
+						react.UserReact[i].UserInfor = cached
+					} else {
+						fetchedInfo, err := s.userService.GetUserInfor(ctx, userID)
+						if err != nil {
+							fetchedInfo = &models.UserInfor{}
+						}
+						react.UserReact[i].UserInfor = &models.UserInfor{
+							UserID:   fetchedInfo.UserID,
+							UserName: fetchedInfo.UserName,
+							Avartar:  fetchedInfo.Avartar,
+						}
+						userCache[userID] = react.UserReact[i].UserInfor
 					}
-					userCache[userID] = react.UserReact[i].UserInfor
 				}
 			}
 		}
@@ -209,8 +226,8 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, from
 			CreatedAt:   msg.CreatedAt,
 			SenderInfor: userInfo,
 			Reacts:      reacts,
+			IsUnread:    isUnread, 
 		})
-
 	}
 
 	return enrichedMessages, totalItems, nil
@@ -240,7 +257,7 @@ func (s *chatService) DownloadGroupMessages(ctx *gin.Context, groupID string, fr
 		return err
 	}
 
-	messages, _, err := s.GetGroupMessages(c, groupID, from, to, nil)
+	messages, _, err := s.GetGroupMessages(c, groupID, nil, from, to, nil)
 	if err != nil {
 		return err
 	}

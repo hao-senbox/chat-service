@@ -20,6 +20,7 @@ type MessagesRepository interface {
     DeleteMessage(ctx context.Context, messageID primitive.ObjectID) error
     CountKeywordMessage(ctx context.Context, keyword string, groupID primitive.ObjectID) (int, []string, error)
     MessageDetail(ctx context.Context, messageID primitive.ObjectID) (*models.Message, error)
+	CountNonUserMessage(ctx context.Context, groupID primitive.ObjectID, userID string) (int, error)
 }
 
 type messagesRepository struct {
@@ -177,4 +178,20 @@ func (r *messagesRepository) MessageDetail(ctx context.Context, messageID primit
     }
 
     return &message, nil
+}
+
+func (r *messagesRepository) CountNonUserMessage(ctx context.Context, groupID primitive.ObjectID, userID string) (int, error) {
+	
+	filter := bson.M{
+		"group_id": groupID,
+		"sender_id":  bson.M{"$ne": userID},
+	}
+
+	count, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(count), nil
+
 }

@@ -53,9 +53,14 @@ func (h *ChatHandlers) GetGroupMessages(c *gin.Context) {
 		SendError(c, http.StatusForbidden, errors.New("unauthorized"), models.ErrInvalidRequest)
 		return
 	}
+	userID := c.Value("user_id").(string)
+	if userID == "" {
+		SendError(c, http.StatusBadRequest, fmt.Errorf("user ID be not empty"), models.ErrInvalidRequest)
+		return
+	}
 
 	ctx := context.WithValue(c, constants.TokenKey, token)
-	messages, totalItems, err := h.chatService.GetGroupMessages(ctx, groupID, nil, nil, &req)
+	messages, totalItems, err := h.chatService.GetGroupMessages(ctx, groupID, &userID, nil, nil, &req)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return

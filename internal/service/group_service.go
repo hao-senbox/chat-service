@@ -29,20 +29,28 @@ type GroupService interface {
 }
 
 type groupService struct {
-	groupRepository     repository.GroupRepository
-	groupUserRepository repository.GroupMemberRepository
-	messagesRepository  repository.MessagesRepository
-	chatService         ChatService
-	userService         UserService
+	groupRepository         repository.GroupRepository
+	groupUserRepository     repository.GroupMemberRepository
+	messagesRepository      repository.MessagesRepository
+	messagesReactRepository repository.MessageReactRepository
+	chatService             ChatService
+	userService             UserService
 }
 
-func NewGroupService(groupRepository repository.GroupRepository, groupUserRepository repository.GroupMemberRepository, messagesRepository repository.MessagesRepository, userService UserService, chachatService ChatService) GroupService {
+func NewGroupService(groupRepository repository.GroupRepository,
+	groupUserRepository repository.GroupMemberRepository,
+	messagesRepository repository.MessagesRepository,
+	userService UserService,
+	chatService ChatService,
+	messagesReactRepository repository.MessageReactRepository,
+	) GroupService {
 	return &groupService{
-		groupRepository:     groupRepository,
-		groupUserRepository: groupUserRepository,
-		messagesRepository:  messagesRepository,
-		userService:         userService,
-		chatService:         chachatService,
+		groupRepository:         groupRepository,
+		groupUserRepository:     groupUserRepository,
+		messagesRepository:      messagesRepository,
+		userService:             userService,
+		messagesReactRepository: messagesReactRepository,
+		chatService:             chatService,
 	}
 }
 
@@ -133,6 +141,20 @@ func (s *groupService) GetUserGroups(ctx context.Context, userID string) ([]*mod
 	groupUser, err := s.groupRepository.GetUserGroups(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user group data: %w", err)
+	}
+
+	for _, group := range groupUser {
+		countMessages, err := s.messagesRepository.CountNonUserMessage(ctx, group.ID, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to count non user message: %w", err)
+		}
+	
+		countReactUser, err := s.messagesReactRepository.CountMessageUserReacted(ctx, group.ID, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to count message user reacted: %w", err)
+		}
+		countMessagesGroup := countMessages - countReactUser
+		group.UnreadCount = countMessagesGroup
 	}
 
 	return groupUser, nil

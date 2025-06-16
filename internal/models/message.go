@@ -31,7 +31,8 @@ type MessageWithUser struct {
 	CreatedAt   time.Time       `json:"created_at"`
 	SenderInfor *UserInfor      `json:"sender_infor"`
 	ReadBy      []*UserInfor    `json:"read_by"`
-	Reacts      []*MessageReact `json:"reacts,omitempty"`
+	Reacts      []*MessageReact `json:"reacts"`
+	IsUnread    bool                 `json:"is_unread"`
 }
 
 type UserInfor struct {

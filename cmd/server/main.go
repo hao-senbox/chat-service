@@ -71,7 +71,7 @@ func main() {
 	messagesRepository := repository.NewChatRepository(messagesCollection, groupMemberCollection)
 	groupRepository := repository.NewGroupRepository(groupCollection, groupMemberCollection, nil)
 	groupMemberRepository := repository.NewGroupMemberRepository(groupMemberCollection, groupRepository)
-	groupService := service.NewGroupService(groupRepository, groupMemberRepository, messagesRepository, userService, nil)
+	groupService := service.NewGroupService(groupRepository, groupMemberRepository, messagesRepository, userService, nil, messagesReactRepository)
 	messageService := service.NewChatService(consulClient ,messagesRepository, messagesReadRepository, groupService, userService, messagesReactRepository)
 	
 	messageVoteRepository := repository.NewVoteRepository(messagesVoteCollection)
