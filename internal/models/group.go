@@ -14,6 +14,7 @@ type Group struct {
 	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
 	UpdateAt    time.Time          `bson:"update_at" json:"update_at"`
 	MemberCount int64              `bson:"member_count" json:"member_count"`
+	UnreadCount int                `bson:"unread_count" json:"unread_count"`
 	GroupQr     []GroupQrCode      `bson:"group_qr" json:"group_qr"`
 }
 

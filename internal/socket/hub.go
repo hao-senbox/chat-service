@@ -662,6 +662,10 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 		return
 	}
 
+	if reacts == nil {
+		reacts = []*models.MessageReact{}
+	}
+
 	var totalAllReacts int64 = 0
 	reactedsUserIDs := make(map[string]bool)
 

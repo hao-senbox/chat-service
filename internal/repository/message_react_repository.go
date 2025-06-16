@@ -13,6 +13,7 @@ type MessageReactRepository interface {
 	InsertMessageReact(ctx context.Context, reactMessage *models.MessageReact) error
 	GetMessageReact(ctx context.Context, messageID primitive.ObjectID, groupID primitive.ObjectID) ([]*models.MessageReact, error)
 	DeleteMessageReacts(ctx context.Context, messageID primitive.ObjectID, groupID primitive.ObjectID) error
+	CountMessageUserReacted(ctx context.Context, groupID primitive.ObjectID, userID string) (int, error)
 }
 
 type messageReactRepository struct {
@@ -139,4 +140,20 @@ func (r *messageReactRepository) DeleteMessageReacts(ctx context.Context, messag
 	}
 
 	return nil
+}
+
+func (r *messageReactRepository) CountMessageUserReacted(ctx context.Context, groupID primitive.ObjectID, userID string) (int, error) {
+
+	filter := bson.M{
+		"group_id": groupID,
+		"user_reacts.user_id": userID,
+	}
+
+	count, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(count), nil
+	
 }
