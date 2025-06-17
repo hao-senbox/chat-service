@@ -12,65 +12,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-
-type Message struct {
-	ID         string      `json:"id"`
-	Type       string      `json:"type"`
-	Token      string      `json:"token"`
-	MessageID  string      `json:"message_id"`
-	IsEdit     bool        `json:"is_edit"`
-	IsDelete   bool        `json:"is_delete"`
-	GroupID    string      `json:"group_id"`
-	ReaderID   string      `json:"reader_id"`
-	SenderID   string      `json:"sender_id"`
-	SenderInfo *UserInfo   `json:"sender_infor,omitempty"`
-	Content    string      `json:"content"`
-	ReactType  string      `json:"react_type"`
-	ContenType string      `json:"content_type"`
-	ImageKey   string      `json:"image_key,omitempty"`
-	VoteData   *VoteData   `json:"vote_data,omitempty"`
-	VoteAction *VoteAction `json:"vote_action,omitempty"`
-	Timestamp  string      `json:"created_at"`
-}
-
-type VoteData struct {
-	Question string   `json:"question"`
-	Options  []string `json:"options"`
-	VoteType string   `json:"vote_type"`
-	EndTime  string   `json:"end_time"`
-	IsActive bool     `json:"is_active"`
-}
-
-type VoteAction struct {
-	VoteID      string `json:"vote_id"`
-	OptionIndex int    `json:"option_index"`
-	Action      string `json:"action"`
-}
-
-type OnlineUsersUpdate struct {
-	Type        string              `json:"type"`
-	GroupID     string              `json:"group_id"`
-	OnlineCount int                 `json:"online_count"`
-	OnlineUsers []*models.UserInfor `json:"online_users"`
-}
-
-type UserInfo struct {
-	UserID    string    `json:"user_id"`
-	Username  string    `json:"user_name"`
-	AvatarURL string    `json:"avatar_url"`
-	LastFetch time.Time `json:"-"`
-}
-
-type WorkerPool struct {
-	workers  int
-	taskChan chan func()
-	ctx      context.Context
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
-}
 
 func NewWorkerPool(workers int) *WorkerPool {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -365,7 +308,6 @@ func (h *Hub) handleClientUnregister(client *Client) {
 	h.roomsMutex.Lock()
 	if clients, ok := h.rooms[client.groupID]; ok {
 		if _, found := clients[client]; found {
-			// Save user online status asynchronously
 			h.workerPool.Submit(func() {
 				ctx := context.WithValue(context.Background(), constants.TokenKey, client.token)
 				err := h.userOnlineRepo.SaveUserOnline(ctx, &models.UserOnline{
@@ -456,8 +398,8 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 			h.deleteAndBroadcastMessage(msg)
 		case "react-message":
 			h.reactAndBroadcastMessage(msg)
-		case "create-vote":
-			h.createAndBroadcastVote(msg)
+		// case "create-vote":
+		// 	h.createAndBroadcastVote(msg)
 		default:
 			log.Printf("Unknown message type: %s", msg.Type)
 		}
@@ -471,7 +413,6 @@ func (h *Hub) checkRateLimit(userID string) bool {
 	defer h.rateMutex.Unlock()
 
 	if _, exists := h.rateLimiter[userID]; !exists {
-		// Allow 10 messages per second per user
 		h.rateLimiter[userID] = time.NewTicker(100 * time.Millisecond)
 		return true
 	}
@@ -488,9 +429,7 @@ func (h *Hub) cleanupRateLimiters() {
 	h.rateMutex.Lock()
 	defer h.rateMutex.Unlock()
 
-	// Clean up inactive rate limiters
 	for userID, ticker := range h.rateLimiter {
-		// Check if user is still online in any group
 		userOnline := false
 		h.onlineUsersMutex.RLock()
 		for _, userMap := range h.onlineUsers {
@@ -735,76 +674,6 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 
 	updatedMessage, _ := json.Marshal(res)
 	h.sendToGroup(msg.GroupID, updatedMessage)
-}
-
-func (h *Hub) createAndBroadcastVote(msg Message) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	objectGroupID, err := primitive.ObjectIDFromHex(msg.GroupID)
-	if err != nil {
-		log.Printf("Error converting group ID to ObjectID: %v", err)
-		h.incrementErrorCount()
-		return
-	}
-
-	convertEndTIme, err := time.Parse(time.RFC3339, msg.VoteData.EndTime)
-	if err != nil {
-		log.Printf("Error parsing end time: %v", err)
-		h.incrementErrorCount()
-		return
-	}
-
-	dbVote := models.Vote{
-		GroupID:   objectGroupID,
-		CreatedBy: msg.SenderID,
-		Question:  msg.VoteData.Question,
-		Options:   []models.VoteOption{},
-		VoteType:  msg.VoteData.VoteType,
-		EndTime:   convertEndTIme,
-		IsActive:  msg.VoteData.IsActive,
-	}
-
-	for _, optionText := range msg.VoteData.Options {
-		dbVote.Options = append(dbVote.Options, models.VoteOption{
-			Text:      optionText,
-			VoteBy:    []string{},
-			VoteCount: 0,
-		})
-	}
-
-	idVote, err := h.voteService.InsertVote(ctx, &dbVote)
-	if err != nil {
-		log.Printf("Error inserting vote: %v", err)
-		h.incrementErrorCount()
-		return
-	}
-
-	dbMessage := models.Message{
-		VoteID:     &idVote,
-		GroupID:    objectGroupID,
-		SenderID:   msg.SenderID,
-		ContenType: "vote",
-	}
-
-	_, err = h.messageService.SaveMessage(ctx, &dbMessage)
-	if err != nil {
-		log.Printf("Error inserting message: %v", err)
-		h.incrementErrorCount()
-		return
-	}
-
-	res := map[string]interface{}{
-		"type":         msg.Type,
-		"group_id":     msg.GroupID,
-		"sender_id":    msg.SenderID,
-		"sender_infor": msg.SenderInfo,
-		"vote":         msg.VoteData,
-	}
-
-	updatedMessage, _ := json.Marshal(res)
-	h.sendToGroup(msg.GroupID, updatedMessage)
-
 }
 
 func (h *Hub) sendToGroup(groupID string, message []byte) {

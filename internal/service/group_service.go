@@ -191,7 +191,7 @@ func (s *groupService) CreateGroup(ctx context.Context, group *models.GroupReque
 }
 
 func (s *groupService) AddUserToGroup(ctx context.Context, group *models.GroupUserRequest) error {
-	// Kiểm tra ID hợp lệ
+
 	if group.GroupID == "" {
 		return fmt.Errorf("group id cannot be empty")
 	}
@@ -205,7 +205,6 @@ func (s *groupService) AddUserToGroup(ctx context.Context, group *models.GroupUs
 		return err
 	}
 
-	// Kiểm tra group tồn tại
 	_, err = s.groupRepository.GetGroupDetail(ctx, objectID)
 	if err != nil {
 		return fmt.Errorf("failed to get group detail: %w", err)
