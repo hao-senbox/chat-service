@@ -73,10 +73,10 @@ func (u *userService) GetUserOnline(ctx context.Context, userID string) (*models
 	}
 
 	userInfor, err := u.GetUserInfor(ctx, userID)
+
 	if err != nil {
 		return nil, err
 	}
-
 	return &models.UserInfor{
 		UserID:     userInfor.UserID,
 		UserName:   userInfor.UserName,
@@ -89,6 +89,7 @@ func (u *userService) GetUserOnline(ctx context.Context, userID string) (*models
 }
 
 func (u *userService) GetUserInfor(ctx context.Context, userID string) (*models.UserInfor, error) {
+
 	token, ok := ctx.Value(constants.TokenKey).(string)
 	if !ok {
 		return nil, fmt.Errorf("token not found in context")
@@ -104,6 +105,7 @@ func (u *userService) GetUserInfor(ctx context.Context, userID string) (*models.
 	}
 
 	innerData, ok := data["data"].(map[string]interface{})
+
 	if !ok {
 		return nil, fmt.Errorf("invalid response format: missing 'data' field")
 	}

@@ -30,6 +30,7 @@ type ChatService interface {
 	InsertMessageReact(ctx context.Context, messageID, groupID, userID, reactType string) error
 	GetMessageReacts(ctx context.Context, messageID, groupID string) ([]*models.MessageReact, error)
 	DeleteMessageReacts(ctx context.Context, messageID, groupID string) error
+	GetMessageByID(ctx context.Context, messageID string) (*models.Message, error)
 }
 
 type chatService struct {
@@ -138,7 +139,13 @@ func (s *chatService) SaveMessage(ctx context.Context, message *models.Message) 
 }
 
 func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, userID *string, from *time.Time, to *time.Time, pagination *models.Panigination) ([]*models.MessageWithUser, int64, error) {
+
 	objectID, err := primitive.ObjectIDFromHex(groupID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	groupDetail, err := s.groupService.GetGroupDetail(ctx, groupID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -158,7 +165,6 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 		} else {
 			fetchedInfo, err := s.userService.GetUserInfor(ctx, msg.SenderID)
 			if err != nil {
-				fmt.Printf("(ChatService) 1 - Failed to get user info for %s: %v\n", msg.SenderID, err)
 				fetchedInfo = &models.UserInfor{}
 			}
 			userInfo = &models.UserInfor{
@@ -215,18 +221,53 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 			}
 		}
 
+		reactedUserIDs := make(map[string]bool)
+		for _, react := range reacts {
+			for _, userReact := range react.UserReact {
+				reactedUserIDs[userReact.UserID] = true
+			}
+		}
+
+		var currentNotReacted []*models.UserInfor
+		for _, member := range groupDetail.Members {
+			uid := member.GroupMember.UserID
+			if uid == msg.SenderID {
+				continue
+			}
+			if !reactedUserIDs[uid] {
+				var userInfo *models.UserInfor
+				if cached, ok := userCache[uid]; ok {
+					userInfo = cached
+				} else {
+					fetchedInfo, err := s.userService.GetUserInfor(ctx, uid)
+					if err != nil {
+						fetchedInfo = &models.UserInfor{}
+					}
+					userInfo = &models.UserInfor{
+						UserID:   fetchedInfo.UserID,
+						UserName: fetchedInfo.UserName,
+						Avartar:  fetchedInfo.Avartar,
+					}
+					userCache[uid] = userInfo
+				}
+
+				currentNotReacted = append(currentNotReacted, userInfo)
+			}
+		}
+
 		enrichedMessages = append(enrichedMessages, &models.MessageWithUser{
-			ID:          msg.ID.Hex(),
-			SenderID:    msg.SenderID,
-			Content:     msg.Content,
-			IsEdit:      msg.IsEdit,
-			IsDelete:    msg.IsDelete,
-			ContenType:  msg.ContenType,
-			ImageKey:    msg.ImageKey,
-			CreatedAt:   msg.CreatedAt,
-			SenderInfor: userInfo,
-			Reacts:      reacts,
-			IsUnread:    isUnread, 
+			ID:                msg.ID.Hex(),
+			SenderID:          msg.SenderID,
+			Content:           msg.Content,
+			IsEdit:            msg.IsEdit,
+			IsDelete:          msg.IsDelete,
+			ContenType:        msg.ContenType,
+			ImageKey:          msg.ImageKey,
+			CreatedAt:         msg.CreatedAt,
+			SenderInfor:       userInfo,
+			Reacts:            reacts,
+			NotReactedMembers: currentNotReacted,
+			IsUnread:          isUnread,
 		})
 	}
 
@@ -363,4 +404,12 @@ func (s *chatService) DeleteMessageReacts(ctx context.Context, messageID, groupI
 	}
 
 	return nil
+}
+
+func (s *chatService) GetMessageByID(ctx context.Context, messageID string) (*models.Message, error) {
+	objectID, err := primitive.ObjectIDFromHex(messageID)
+	if err != nil {
+		return nil, err
+	}
+	return s.messagesRepository.GetMessageByID(ctx, objectID)
 }

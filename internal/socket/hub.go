@@ -617,7 +617,7 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 				wg.Add(1)
 				go func(reactIdx, userIdx int, userID string) {
 					defer wg.Done()
-					user, err := h.userService.GetUserInfor(ctx, msg.SenderID)
+					user, err := h.userService.GetUserInfor(ctx, userID)
 					if err != nil {
 						log.Printf("Error getting user info: %v", err)
 						return
@@ -634,29 +634,29 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 	wg.Wait()
 
 	var notReactedMembers []map[string]interface{}
-	var ReactedMembers []map[string]interface{}
-
+	message, err := h.messageService.GetMessageByID(ctx, msg.ID)
+	if err != nil {
+		log.Printf("Error getting message: %v", err)
+		h.incrementErrorCount()
+		return
+	}
+	userIdOfMessage := message.SenderID
+ 
 	for _, member := range groupDetail.Members {
-		memberInfo := map[string]interface{}{
-			"user_id":    member.GroupMember.UserID,
-			"user_name":  member.GroupMember.UserInfor.UserName,
-			"avatar_url": member.GroupMember.UserInfor.Avartar,
+		userID := member.GroupMember.UserID
+		if userID == userIdOfMessage {
+			continue
 		}
 
-		if reactedsUserIDs[member.GroupMember.UserID] {
-			var userReactions []string
-			for _, react := range reacts {
-				for _, ur := range react.UserReact {
-					if ur.UserID == member.GroupMember.UserID {
-						userReactions = append(userReactions, react.React)
-					}
-				}
+		if !reactedsUserIDs[userID] {
+			memberInfo := map[string]interface{}{
+				"user_id":    member.GroupMember.UserID,
+				"user_name":  member.GroupMember.UserInfor.UserName,
+				"avatar_url": member.GroupMember.UserInfor.Avartar,
 			}
-			memberInfo["reacts"] = userReactions
-			ReactedMembers = append(ReactedMembers, memberInfo)
-		} else {
-			notReactedMembers = append(notReactedMembers, memberInfo)
+			notReactedMembers = append(notReactedMembers, memberInfo)		
 		}
+	
 	}
 
 	res := map[string]interface{}{
@@ -668,7 +668,6 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 		"react_type":          msg.ReactType,
 		"reacts":              reacts,
 		"total_all_reacts":    totalAllReacts,
-		"reacted_members":     ReactedMembers,
 		"not_reacted_members": notReactedMembers,
 	}
 
