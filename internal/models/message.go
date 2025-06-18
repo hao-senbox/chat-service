@@ -32,7 +32,7 @@ type MessageWithUser struct {
 	SenderInfor       *UserInfor      `json:"sender_infor"`
 	NotReactedMembers []*UserInfor    `json:"not_reacted_members"`
 	Reacts            []*MessageReact `json:"reacts"`
-	IsUnread          bool            `json:"is_unread"`
+	IsUnread          bool            `json:"is_reacted"`
 }
 
 type UserInfor struct {

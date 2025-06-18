@@ -179,14 +179,14 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 		if err != nil {
 			return nil, 0, err
 		}
-		isUnread := true
+		isUnread := false
 		if msg.SenderID == *userID {
-			isUnread = false
+			isUnread = true
 		} else {
 			for _, react := range reacts {
 				for _, userReact := range react.UserReact {
 					if userReact.UserID == *userID {
-						isUnread = false
+						isUnread = true
 						break
 					}
 				}

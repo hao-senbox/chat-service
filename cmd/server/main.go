@@ -88,6 +88,7 @@ func main() {
 	api.RegisterSocketRouters(router, hub, messageService)
 	api.RegisterGroupRouters(router, groupService)
 	api.RegisterChatRouters(router, messageService)
+
 	// router.LoadHTMLGlob("web/templates/*")
 	// router.GET("/", func(c *gin.Context) {
 	// 	c.HTML(http.StatusOK ,"home.html", gin.H{
@@ -143,7 +144,6 @@ func connectToMongoDB(uri string) (*mongo.Client, error) {
 		return nil, err
 	}
 
-	// Check connection
 	if err := client.Ping(ctx, readpref.Primary()); err != nil {
 		log.Println("Failed to ping to MongoDB")
 		return nil, err

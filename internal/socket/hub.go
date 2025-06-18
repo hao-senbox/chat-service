@@ -8,11 +8,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"runtime"
 	"sync"
 	"time"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func NewWorkerPool(workers int) *WorkerPool {
@@ -448,14 +448,52 @@ func (h *Hub) cleanupRateLimiters() {
 }
 
 func (h *Hub) saveAndBroadcastMessage(msg Message) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+
+	var senderClient *Client
+	h.roomsMutex.RLock()
+	if clients, ok := h.rooms[msg.GroupID]; ok {
+		for client := range clients {
+			if client.userID == msg.SenderID {
+				senderClient = client
+				break
+			}
+		}
+	}
+	h.roomsMutex.RUnlock()
+
+	if senderClient == nil {
+		log.Printf("Could not find sender client for user %s", msg.SenderID)
+		return
+	}
+
+	ctx := context.WithValue(context.Background(), constants.TokenKey, senderClient.token)
 
 	groupID, err := primitive.ObjectIDFromHex(msg.GroupID)
 	if err != nil {
 		log.Printf("Invalid group ID: %v", err)
 		h.incrementErrorCount()
 		return
+	}
+
+	groupDetail, err := h.groupService.GetGroupDetail(ctx, msg.GroupID)
+	if err != nil {
+		log.Printf("Error getting group detail: %v", err)
+		h.incrementErrorCount()
+		return
+	}
+
+	var notReactedMembers []*models.UserInfor
+
+	for _, member := range groupDetail.Members {
+		userID := member.GroupMember.UserID
+		if userID == msg.SenderID {
+			continue
+		} else {
+			notReactedMembers = append(notReactedMembers, &models.UserInfor{
+				UserID:   member.GroupMember.UserID,
+				UserName: member.GroupMember.UserInfor.UserName,
+			})
+		}
 	}
 
 	dbMsg := models.Message{
@@ -470,14 +508,16 @@ func (h *Hub) saveAndBroadcastMessage(msg Message) {
 	}
 
 	res := map[string]interface{}{
-		"type":         msg.Type,
-		"group_id":     msg.GroupID,
-		"sender_id":    msg.SenderID,
-		"sender_infor": msg.SenderInfo,
-		"content":      msg.Content,
-		"content_type": msg.ContenType,
-		"image_key":    msg.ImageKey,
-		"created_at":   msg.Timestamp,
+		"type":                msg.Type,
+		"group_id":            msg.GroupID,
+		"sender_id":           msg.SenderID,
+		"sender_infor":        msg.SenderInfo,
+		"content":             msg.Content,
+		"content_type":        msg.ContenType,
+		"image_key":           msg.ImageKey,
+		"not_reacted_members": notReactedMembers,
+		"is_reacted":          false,
+		"created_at":          msg.Timestamp,
 	}
 
 	id, err := h.messageService.SaveMessage(ctx, &dbMsg)
@@ -493,8 +533,46 @@ func (h *Hub) saveAndBroadcastMessage(msg Message) {
 }
 
 func (h *Hub) editAndBroadcastMessage(msg Message) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+
+	var senderClient *Client
+	h.roomsMutex.RLock()
+	if clients, ok := h.rooms[msg.GroupID]; ok {
+		for client := range clients {
+			if client.userID == msg.SenderID {
+				senderClient = client
+				break
+			}
+		}
+	}
+	h.roomsMutex.RUnlock()
+
+	if senderClient == nil {
+		log.Printf("Could not find sender client for user %s", msg.SenderID)
+		return
+	}
+
+	ctx := context.WithValue(context.Background(), constants.TokenKey, senderClient.token)
+
+	groupDetail, err := h.groupService.GetGroupDetail(ctx, msg.GroupID)
+	if err != nil {
+		log.Printf("Error getting group detail: %v", err)
+		h.incrementErrorCount()
+		return
+	}
+
+	var notReactedMembers []*models.UserInfor
+
+	for _, member := range groupDetail.Members {
+		userID := member.GroupMember.UserID
+		if userID == msg.SenderID {
+			continue
+		} else {
+			notReactedMembers = append(notReactedMembers, &models.UserInfor{
+				UserID:   member.GroupMember.UserID,
+				UserName: member.GroupMember.UserInfor.UserName,
+			})
+		}
+	}
 
 	dbMsg := models.EditMessage{
 		ID:       msg.ID,
@@ -503,14 +581,16 @@ func (h *Hub) editAndBroadcastMessage(msg Message) {
 	}
 
 	res := map[string]interface{}{
-		"id":           msg.ID,
-		"type":         msg.Type,
-		"group_id":     msg.GroupID,
-		"is_edit":      true,
-		"sender_id":    msg.SenderID,
-		"sender_infor": msg.SenderInfo,
-		"content":      msg.Content,
-		"created_at":   msg.Timestamp,
+		"id":                  msg.ID,
+		"type":                msg.Type,
+		"group_id":            msg.GroupID,
+		"is_edit":             true,
+		"sender_id":           msg.SenderID,
+		"sender_infor":        msg.SenderInfo,
+		"content":             msg.Content,
+		"not_reacted_members": notReactedMembers,
+		"is_reacted":          false,
+		"created_at":          msg.Timestamp,
 	}
 
 	if err := h.messageService.EditMessage(ctx, &dbMsg); err != nil {
@@ -577,7 +657,7 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 		log.Printf("Could not find sender client for user %s", msg.SenderID)
 		return
 	}
-	
+
 	ctx := context.WithValue(context.Background(), constants.TokenKey, senderClient.token)
 
 	err := h.messageService.InsertMessageReact(ctx, msg.ID, msg.GroupID, msg.SenderID, msg.ReactType)
@@ -641,7 +721,7 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 		return
 	}
 	userIdOfMessage := message.SenderID
- 
+
 	for _, member := range groupDetail.Members {
 		userID := member.GroupMember.UserID
 		if userID == userIdOfMessage {
@@ -654,9 +734,9 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 				"user_name":  member.GroupMember.UserInfor.UserName,
 				"avatar_url": member.GroupMember.UserInfor.Avartar,
 			}
-			notReactedMembers = append(notReactedMembers, memberInfo)		
+			notReactedMembers = append(notReactedMembers, memberInfo)
 		}
-	
+
 	}
 
 	res := map[string]interface{}{
