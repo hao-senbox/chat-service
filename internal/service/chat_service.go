@@ -255,11 +255,21 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 			}
 		}
 
+		isLimitTimeReact := false
+		if groupDetail.Group.LimitTimeReact > 0 {
+			expireTime := msg.CreatedAt.Add(time.Duration(groupDetail.Group.LimitTimeReact) * time.Minute)
+			
+			if time.Now().After(expireTime) {
+				isLimitTimeReact = true
+			}
+		}
+
 		enrichedMessages = append(enrichedMessages, &models.MessageWithUser{
 			ID:                msg.ID.Hex(),
 			SenderID:          msg.SenderID,
 			Content:           msg.Content,
 			IsEdit:            msg.IsEdit,
+			IsLimitTimeReact:  isLimitTimeReact,
 			IsDelete:          msg.IsDelete,
 			ContenType:        msg.ContenType,
 			ImageKey:          msg.ImageKey,

@@ -155,6 +155,11 @@ func (h *Hub) getUserInfoWithContext(ctx context.Context, userID string) (*UserI
 		return nil, fmt.Errorf("failed to fetch user info: %v", err)
 	}
 
+	h.updateUserCache(userID, userInfo)
+	return h.userCache[userID], nil
+}
+
+func (h *Hub) updateUserCache(userID string, userInfo *models.UserInfor) {
 	h.userCacheMutex.Lock()
 	defer h.userCacheMutex.Unlock()
 
@@ -168,7 +173,6 @@ func (h *Hub) getUserInfoWithContext(ctx context.Context, userID string) (*UserI
 	h.userCacheList = append([]string{userID}, h.userCacheList...)
 
 	if len(h.userCacheList) > h.maxCacheSize {
-
 		for i := h.maxCacheSize; i < len(h.userCacheList); i++ {
 			delete(h.userCache, h.userCacheList[i])
 		}
@@ -181,13 +185,81 @@ func (h *Hub) getUserInfoWithContext(ctx context.Context, userID string) (*UserI
 		AvatarURL: userInfo.Avartar,
 		LastFetch: time.Now(),
 	}
+}
 
-	return h.userCache[userID], nil
+func (h *Hub) findSenderClient(groupID, senderID string) *Client {
+	h.roomsMutex.RLock()
+	defer h.roomsMutex.RUnlock()
+
+	if clients, ok := h.rooms[groupID]; ok {
+		for client := range clients {
+			if client.userID == senderID {
+				return client
+			}
+		}
+	}
+	return nil
+}
+
+func (h *Hub) getContextWithToken(client *Client) context.Context {
+	return context.WithValue(context.Background(), constants.TokenKey, client.token)
+}
+
+func (h *Hub) getNotReactedMembers(ctx context.Context, groupID, senderID string, reactedUserIDs map[string]bool) ([]*models.UserInfor, error) {
+	groupDetail, err := h.groupService.GetGroupDetail(ctx, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting group detail: %v", err)
+	}
+
+	var notReactedMembers []*models.UserInfor
+	for _, member := range groupDetail.Members {
+		userID := member.GroupMember.UserID
+		if userID == senderID {
+			continue
+		}
+		if reactedUserIDs == nil || !reactedUserIDs[userID] {
+			notReactedMembers = append(notReactedMembers, &models.UserInfor{
+				UserID:   member.GroupMember.UserID,
+				UserName: member.GroupMember.UserInfor.UserName,
+			})
+		}
+	}
+	return notReactedMembers, nil
+}
+
+func (h *Hub) populateUserInfoInReacts(ctx context.Context, reacts []*models.MessageReact) (int64, map[string]bool) {
+	var totalAllReacts int64
+	reactedUserIDs := make(map[string]bool)
+	var wg sync.WaitGroup
+
+	for i := range reacts {
+		totalAllReacts += reacts[i].TotalReact
+		for j := range reacts[i].UserReact {
+			reactedUserIDs[reacts[i].UserReact[j].UserID] = true
+			if reacts[i].UserReact[j].UserInfor == nil {
+				wg.Add(1)
+				go func(reactIdx, userIdx int, userID string) {
+					defer wg.Done()
+					user, err := h.userService.GetUserInfor(ctx, userID)
+					if err != nil {
+						log.Printf("Error getting user info: %v", err)
+						return
+					}
+					reacts[reactIdx].UserReact[userIdx].UserInfor = &models.UserInfor{
+						UserID:   user.UserID,
+						UserName: user.UserName,
+						Avartar:  user.Avartar,
+					}
+				}(i, j, reacts[i].UserReact[j].UserID)
+			}
+		}
+	}
+	wg.Wait()
+	return totalAllReacts, reactedUserIDs
 }
 
 func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client) {
 	h.workerPool.Submit(func() {
-
 		time.Sleep(100 * time.Millisecond)
 
 		h.onlineUsersMutex.RLock()
@@ -198,7 +270,7 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client)
 
 		if userMap, ok := h.onlineUsers[groupID]; ok {
 			onlineCount = len(userMap)
-			ctx := context.WithValue(context.Background(), constants.TokenKey, clientForToken.token)
+			ctx := h.getContextWithToken(clientForToken)
 			userInfoChan := make(chan *models.UserInfor, onlineCount)
 			var wg sync.WaitGroup
 
@@ -208,7 +280,7 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client)
 					defer wg.Done()
 					userInfo, err := h.getUserInfoWithContext(ctx, uid)
 					if err != nil {
-						log.Printf("(Hub) 1 - Failed to get user info for )%s: %v\n", uid, err)
+						log.Printf("(Hub) 1 - Failed to get user info for %s: %v\n", uid, err)
 						return
 					}
 					userInfoChan <- &models.UserInfor{
@@ -247,7 +319,6 @@ func (h *Hub) broadcastOnlineUsersUpdate(groupID string, clientForToken *Client)
 }
 
 func (h *Hub) Run() {
-
 	defer h.workerPool.Stop()
 
 	cleanupTicker := time.NewTicker(5 * time.Minute)
@@ -275,7 +346,6 @@ func (h *Hub) Run() {
 }
 
 func (h *Hub) handleClientRegister(client *Client) {
-
 	h.roomsMutex.Lock()
 	if _, ok := h.rooms[client.groupID]; !ok {
 		h.rooms[client.groupID] = make(map[*Client]bool)
@@ -290,14 +360,11 @@ func (h *Hub) handleClientRegister(client *Client) {
 	h.onlineUsers[client.groupID][client.userID] = true
 	h.onlineUsersMutex.Unlock()
 
-	h.metrics.mutex.Lock()
-	h.metrics.activeConnections++
-	h.metrics.mutex.Unlock()
-
+	h.incrementActiveConnections()
 	log.Printf("Client %s connected to group %s", client.userID, client.groupID)
 
 	h.workerPool.Submit(func() {
-		ctx := context.WithValue(context.Background(), constants.TokenKey, client.token)
+		ctx := h.getContextWithToken(client)
 		_, _ = h.getUserInfoWithContext(ctx, client.userID)
 	})
 
@@ -309,7 +376,7 @@ func (h *Hub) handleClientUnregister(client *Client) {
 	if clients, ok := h.rooms[client.groupID]; ok {
 		if _, found := clients[client]; found {
 			h.workerPool.Submit(func() {
-				ctx := context.WithValue(context.Background(), constants.TokenKey, client.token)
+				ctx := h.getContextWithToken(client)
 				err := h.userOnlineRepo.SaveUserOnline(ctx, &models.UserOnline{
 					UserID:     client.userID,
 					LastOnline: time.Now(),
@@ -340,13 +407,9 @@ func (h *Hub) handleClientUnregister(client *Client) {
 	}
 	h.onlineUsersMutex.Unlock()
 
-	// Update metrics
-	h.metrics.mutex.Lock()
-	h.metrics.activeConnections--
-	h.metrics.mutex.Unlock()
+	h.decrementActiveConnections()
 
 	var tokenClient *Client
-
 	h.broadcastOnlineUsersUpdate(client.groupID, tokenClient)
 }
 
@@ -363,25 +426,14 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 		return
 	}
 
-	var senderClient *Client
-	h.roomsMutex.RLock()
-	if clients, ok := h.rooms[msg.GroupID]; ok {
-		for client := range clients {
-			if client.userID == msg.SenderID {
-				senderClient = client
-				break
-			}
-		}
-	}
-	h.roomsMutex.RUnlock()
-
+	senderClient := h.findSenderClient(msg.GroupID, msg.SenderID)
 	if senderClient == nil {
 		log.Printf("Could not find sender client for user %s", msg.SenderID)
 		return
 	}
 
 	h.workerPool.Submit(func() {
-		ctx := context.WithValue(context.Background(), constants.TokenKey, senderClient.token)
+		ctx := h.getContextWithToken(senderClient)
 		userInfo, err := h.getUserInfoWithContext(ctx, msg.SenderID)
 		if err == nil {
 			msg.SenderInfo = userInfo
@@ -398,8 +450,6 @@ func (h *Hub) handleBroadcastMessage(message []byte) {
 			h.deleteAndBroadcastMessage(msg)
 		case "react-message":
 			h.reactAndBroadcastMessage(msg)
-		// case "create-vote":
-		// 	h.createAndBroadcastVote(msg)
 		default:
 			log.Printf("Unknown message type: %s", msg.Type)
 		}
@@ -448,25 +498,13 @@ func (h *Hub) cleanupRateLimiters() {
 }
 
 func (h *Hub) saveAndBroadcastMessage(msg Message) {
-
-	var senderClient *Client
-	h.roomsMutex.RLock()
-	if clients, ok := h.rooms[msg.GroupID]; ok {
-		for client := range clients {
-			if client.userID == msg.SenderID {
-				senderClient = client
-				break
-			}
-		}
-	}
-	h.roomsMutex.RUnlock()
-
+	senderClient := h.findSenderClient(msg.GroupID, msg.SenderID)
 	if senderClient == nil {
 		log.Printf("Could not find sender client for user %s", msg.SenderID)
 		return
 	}
 
-	ctx := context.WithValue(context.Background(), constants.TokenKey, senderClient.token)
+	ctx := h.getContextWithToken(senderClient)
 
 	groupID, err := primitive.ObjectIDFromHex(msg.GroupID)
 	if err != nil {
@@ -475,25 +513,11 @@ func (h *Hub) saveAndBroadcastMessage(msg Message) {
 		return
 	}
 
-	groupDetail, err := h.groupService.GetGroupDetail(ctx, msg.GroupID)
+	notReactedMembers, err := h.getNotReactedMembers(ctx, msg.GroupID, msg.SenderID, nil)
 	if err != nil {
-		log.Printf("Error getting group detail: %v", err)
+		log.Printf("%v", err)
 		h.incrementErrorCount()
 		return
-	}
-
-	var notReactedMembers []*models.UserInfor
-
-	for _, member := range groupDetail.Members {
-		userID := member.GroupMember.UserID
-		if userID == msg.SenderID {
-			continue
-		} else {
-			notReactedMembers = append(notReactedMembers, &models.UserInfor{
-				UserID:   member.GroupMember.UserID,
-				UserName: member.GroupMember.UserInfor.UserName,
-			})
-		}
 	}
 
 	dbMsg := models.Message{
@@ -515,6 +539,7 @@ func (h *Hub) saveAndBroadcastMessage(msg Message) {
 		"content":             msg.Content,
 		"content_type":        msg.ContenType,
 		"image_key":           msg.ImageKey,
+		"is_limit_time_react": false,
 		"not_reacted_members": notReactedMembers,
 		"is_reacted":          false,
 		"created_at":          msg.Timestamp,
@@ -533,25 +558,40 @@ func (h *Hub) saveAndBroadcastMessage(msg Message) {
 }
 
 func (h *Hub) editAndBroadcastMessage(msg Message) {
-
-	var senderClient *Client
-	h.roomsMutex.RLock()
-	if clients, ok := h.rooms[msg.GroupID]; ok {
-		for client := range clients {
-			if client.userID == msg.SenderID {
-				senderClient = client
-				break
-			}
-		}
-	}
-	h.roomsMutex.RUnlock()
-
+	senderClient := h.findSenderClient(msg.GroupID, msg.SenderID)
 	if senderClient == nil {
 		log.Printf("Could not find sender client for user %s", msg.SenderID)
 		return
 	}
 
-	ctx := context.WithValue(context.Background(), constants.TokenKey, senderClient.token)
+	ctx := h.getContextWithToken(senderClient)
+
+	reacts, err := h.messageService.GetMessageReacts(ctx, msg.ID, msg.GroupID)
+	if err != nil {
+		log.Printf("Error getting message reacts: %v", err)
+		h.incrementErrorCount()
+		return
+	}
+
+	if reacts == nil {
+		reacts = []*models.MessageReact{}
+	}
+
+	_, reactedUserIDs := h.populateUserInfoInReacts(ctx, reacts)
+
+	notReactedMembers, err := h.getNotReactedMembers(ctx, msg.GroupID, msg.SenderID, reactedUserIDs)
+	if err != nil {
+		log.Printf("%v", err)
+		h.incrementErrorCount()
+		return
+	}
+
+	message, err := h.messageService.GetMessageByID(ctx, msg.ID)
+	if err != nil {
+		log.Printf("Error getting message: %v", err)
+		h.incrementErrorCount()
+		return
+	}
 
 	groupDetail, err := h.groupService.GetGroupDetail(ctx, msg.GroupID)
 	if err != nil {
@@ -560,17 +600,12 @@ func (h *Hub) editAndBroadcastMessage(msg Message) {
 		return
 	}
 
-	var notReactedMembers []*models.UserInfor
-
-	for _, member := range groupDetail.Members {
-		userID := member.GroupMember.UserID
-		if userID == msg.SenderID {
-			continue
-		} else {
-			notReactedMembers = append(notReactedMembers, &models.UserInfor{
-				UserID:   member.GroupMember.UserID,
-				UserName: member.GroupMember.UserInfor.UserName,
-			})
+	isLimitTimeReact := false
+	if groupDetail.Group.LimitTimeReact > 0 {
+		expireTime := message.CreatedAt.Add(time.Duration(groupDetail.Group.LimitTimeReact) * time.Minute)
+		
+		if time.Now().After(expireTime) {
+			isLimitTimeReact = true
 		}
 	}
 
@@ -585,6 +620,7 @@ func (h *Hub) editAndBroadcastMessage(msg Message) {
 		"type":                msg.Type,
 		"group_id":            msg.GroupID,
 		"is_edit":             true,
+		"is_limit_time_react": isLimitTimeReact,
 		"sender_id":           msg.SenderID,
 		"sender_infor":        msg.SenderInfo,
 		"content":             msg.Content,
@@ -640,36 +676,17 @@ func (h *Hub) deleteAndBroadcastMessage(msg Message) {
 }
 
 func (h *Hub) reactAndBroadcastMessage(msg Message) {
-
-	var senderClient *Client
-	h.roomsMutex.RLock()
-	if clients, ok := h.rooms[msg.GroupID]; ok {
-		for client := range clients {
-			if client.userID == msg.SenderID {
-				senderClient = client
-				break
-			}
-		}
-	}
-	h.roomsMutex.RUnlock()
-
+	senderClient := h.findSenderClient(msg.GroupID, msg.SenderID)
 	if senderClient == nil {
 		log.Printf("Could not find sender client for user %s", msg.SenderID)
 		return
 	}
 
-	ctx := context.WithValue(context.Background(), constants.TokenKey, senderClient.token)
+	ctx := h.getContextWithToken(senderClient)
 
 	err := h.messageService.InsertMessageReact(ctx, msg.ID, msg.GroupID, msg.SenderID, msg.ReactType)
 	if err != nil {
 		log.Printf("Error inserting message react: %v", err)
-		h.incrementErrorCount()
-		return
-	}
-
-	groupDetail, err := h.groupService.GetGroupDetail(ctx, msg.GroupID)
-	if err != nil {
-		log.Printf("Error getting group detail: %v", err)
 		h.incrementErrorCount()
 		return
 	}
@@ -685,50 +702,30 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 		reacts = []*models.MessageReact{}
 	}
 
-	var totalAllReacts int64 = 0
-	reactedsUserIDs := make(map[string]bool)
+	totalAllReacts, reactedUserIDs := h.populateUserInfoInReacts(ctx, reacts)
 
-	var wg sync.WaitGroup
-	for i := range reacts {
-		totalAllReacts += reacts[i].TotalReact
-		for j := range reacts[i].UserReact {
-			reactedsUserIDs[reacts[i].UserReact[j].UserID] = true
-			if reacts[i].UserReact[j].UserInfor == nil {
-				wg.Add(1)
-				go func(reactIdx, userIdx int, userID string) {
-					defer wg.Done()
-					user, err := h.userService.GetUserInfor(ctx, userID)
-					if err != nil {
-						log.Printf("Error getting user info: %v", err)
-						return
-					}
-					reacts[reactIdx].UserReact[userIdx].UserInfor = &models.UserInfor{
-						UserID:   user.UserID,
-						UserName: user.UserName,
-						Avartar:  user.Avartar,
-					}
-				}(i, j, reacts[i].UserReact[j].UserID)
-			}
-		}
-	}
-	wg.Wait()
-
-	var notReactedMembers []map[string]interface{}
 	message, err := h.messageService.GetMessageByID(ctx, msg.ID)
 	if err != nil {
 		log.Printf("Error getting message: %v", err)
 		h.incrementErrorCount()
 		return
 	}
-	userIdOfMessage := message.SenderID
 
+	groupDetail, err := h.groupService.GetGroupDetail(ctx, msg.GroupID)
+	if err != nil {
+		log.Printf("Error getting group detail: %v", err)
+		h.incrementErrorCount()
+		return
+	}
+
+	var notReactedMembers []map[string]interface{}
 	for _, member := range groupDetail.Members {
 		userID := member.GroupMember.UserID
-		if userID == userIdOfMessage {
+		if userID == message.SenderID {
 			continue
 		}
 
-		if !reactedsUserIDs[userID] {
+		if !reactedUserIDs[userID] {
 			memberInfo := map[string]interface{}{
 				"user_id":    member.GroupMember.UserID,
 				"user_name":  member.GroupMember.UserInfor.UserName,
@@ -736,7 +733,6 @@ func (h *Hub) reactAndBroadcastMessage(msg Message) {
 			}
 			notReactedMembers = append(notReactedMembers, memberInfo)
 		}
-
 	}
 
 	res := map[string]interface{}{
@@ -775,11 +771,22 @@ func (h *Hub) sendToGroup(groupID string, message []byte) {
 				select {
 				case h.unregister <- c:
 				default:
-
 				}
 			}(client)
 		}
 	}
+}
+
+func (h *Hub) incrementActiveConnections() {
+	h.metrics.mutex.Lock()
+	h.metrics.activeConnections++
+	h.metrics.mutex.Unlock()
+}
+
+func (h *Hub) decrementActiveConnections() {
+	h.metrics.mutex.Lock()
+	h.metrics.activeConnections--
+	h.metrics.mutex.Unlock()
 }
 
 func (h *Hub) incrementProcessedCount() {

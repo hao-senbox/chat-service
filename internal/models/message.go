@@ -25,6 +25,7 @@ type MessageWithUser struct {
 	SenderID          string          `json:"sender_id"`
 	Content           string          `json:"content"`
 	IsEdit            bool            `json:"is_edit"`
+	IsLimitTimeReact  bool            `json:"is_limit_time_react"`
 	ContenType        string          `json:"content_type"`
 	ImageKey          string          `json:"image_key,omitempty"`
 	IsDelete          bool            `json:"is_delete"`

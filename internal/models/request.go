@@ -3,9 +3,10 @@ package models
 import "time"
 
 type GroupRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	CreatedBy   string `json:"created_by"`
+	Name           string `json:"name"`
+	LimitTimeReact int64  `json:"limit_time_react"`
+	Description    string `json:"description"`
+	CreatedBy      string `json:"created_by"`
 }
 
 type EditMessage struct {
@@ -54,6 +55,6 @@ type ReactMessageRequest struct {
 }
 
 type Panigination struct {
-    Page  int `form:"page"`
-    Limit int `form:"limit"`
+	Page  int `form:"page"`
+	Limit int `form:"limit"`
 }
