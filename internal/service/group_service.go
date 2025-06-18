@@ -174,10 +174,19 @@ func (s *groupService) CreateGroup(ctx context.Context, group *models.GroupReque
 		return fmt.Errorf("created by cannot be empty")
 	}
 
+	if group.LimitTimeReact == 0 {
+		return fmt.Errorf("limit time react cannot be empty")
+	}
+
+	if group.LimitTimeReact < 0 {
+		return fmt.Errorf("limit time react cannot be negative")
+	}
+
 	groupInfor := models.Group{
 		Name:        group.Name,
 		Description: group.Description,
 		GroupQr:     []models.GroupQrCode{},
+		LimitTimeReact: group.LimitTimeReact,
 		CreatedBy:   group.CreatedBy,
 		CreatedAt:   time.Now(),
 		UpdateAt:    time.Now(),
