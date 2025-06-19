@@ -135,8 +135,15 @@ func (s *groupService) GetGroupDetail(ctx context.Context, groupID string) (*mod
 		})
 	}
 
+	totalMessage, err := s.messagesRepository.GetCountMessageGroup(ctx, objectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total message of group: %w", err)
+	}
+
+
 	result = &models.GroupWithMembers{
 		Group:   *group,
+		TotalMessageOfGroup: totalMessage,
 		Members: memberWithInfor,
 	}
 

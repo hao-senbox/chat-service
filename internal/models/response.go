@@ -32,6 +32,7 @@ type ReactTypeCountOfUser struct {
 
 type GroupWithMembers struct {
 	Group   Group                      `json:"group"`
+	TotalMessageOfGroup int          `json:"total_message_of_group"`
 	Members []GroupMemberWithUserInfor `json:"members"`
 }
 

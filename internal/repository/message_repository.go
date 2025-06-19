@@ -22,6 +22,7 @@ type MessagesRepository interface {
     MessageDetail(ctx context.Context, messageID primitive.ObjectID) (*models.Message, error)
 	CountNonUserMessage(ctx context.Context, groupID primitive.ObjectID, userID string) (int, error)
 	GetMessageByID(ctx context.Context, messageID primitive.ObjectID) (*models.Message, error)
+	GetCountMessageGroup(ctx context.Context, groupID primitive.ObjectID) (int, error)
 }
 
 type messagesRepository struct {
@@ -209,4 +210,16 @@ func (r *messagesRepository) GetMessageByID(ctx context.Context, messageID primi
 
 	return &message, nil
 	
+}
+
+func (r *messagesRepository) GetCountMessageGroup(ctx context.Context, groupID primitive.ObjectID) (int, error) {
+
+	filter := bson.M{"group_id": groupID}
+
+	count, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(count), nil
 }
