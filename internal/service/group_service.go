@@ -123,6 +123,13 @@ func (s *groupService) GetGroupDetail(ctx context.Context, groupID string) (*mod
 			return nil, fmt.Errorf("failed to get user infor: %w", err)
 		}
 
+		reactCounts, err := s.messagesReactRepository.GetUserReactCountsInGroup(ctx, member.UserID, objectID)
+		if err != nil {
+			log.Printf("failed to get react counts for user %s: %v", member.UserID, err)
+			reactCounts = []*models.ReactTypeCountOfUser{}
+		}
+		member.ReactOfUser = reactCounts
+
 		memberWithInfor = append(memberWithInfor, models.GroupMemberWithUserInfor{
 			GroupMember: member,
 		})
