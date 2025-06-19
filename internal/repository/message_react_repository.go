@@ -162,32 +162,33 @@ func (r *messageReactRepository) CountMessageUserReacted(ctx context.Context, gr
 }
 
 func (r *messageReactRepository) GetUserReactCountsInGroup(ctx context.Context, userID string, groupID primitive.ObjectID) ([]*models.ReactTypeCountOfUser, error) {
+	
 	pipeline := mongo.Pipeline{
-		// Match reactions trong group và của user cụ thể
+
 		{
 			{Key: "$match", Value: bson.M{
 				"group_id": groupID,
 				"user_reacts.user_id": userID,
 			}},
 		},
-		// Unwind user_reacts array để xử lý từng react
+
 		{
 			{Key: "$unwind", Value: "$user_reacts"},
 		},
-		// Filter chỉ lấy react của user cụ thể
+
 		{
 			{Key: "$match", Value: bson.M{
 				"user_reacts.user_id": userID,
 			}},
 		},
-		// Group theo react type và sum count
+
 		{
 			{Key: "$group", Value: bson.M{
 				"_id": "$react",
 				"total_count": bson.M{"$sum": "$user_reacts.count"},
 			}},
 		},
-		// Project để format output
+
 		{
 			{Key: "$project", Value: bson.M{
 				"react_type": "$_id",

@@ -18,7 +18,7 @@ type GroupMemberResponse struct {
 	ID          primitive.ObjectID     `bson:"_id,omitempty" json:"id,omitempty"`
 	GroupID     primitive.ObjectID     `bson:"group_id" json:"group_id"`
 	UserID      string                 `bson:"user_id" json:"user_id"`
-	ReactOfUser []ReactTypeCountOfUser `bson:"react_of_user" json:"react_of_user"`
+	ReactOfUser []*ReactTypeCountOfUser `bson:"react_of_user" json:"react_of_user"`
 	UserInfor   *UserInfor             `bson:"user_infor" json:"user_infor"`
 	Permission  Permission             `bson:"permission" json:"permission"`
 	CreatedAt   time.Time              `bson:"created_at" json:"created_at"`
@@ -26,8 +26,8 @@ type GroupMemberResponse struct {
 }
 
 type ReactTypeCountOfUser struct {
-	ReactType string `json:"react_type"`
-	Count     int64  `json:"count"`
+	ReactType string `json:"react_type" bson:"react_type"`
+	Count     int64  `json:"count" bson:"count"`
 }
 
 type GroupWithMembers struct {
