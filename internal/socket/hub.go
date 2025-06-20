@@ -542,7 +542,7 @@ func (h *Hub) saveAndBroadcastMessage(msg Message) {
 		"is_limit_time_react": false,
 		"not_reacted_members": notReactedMembers,
 		"is_reacted":          false,
-		"created_at":          time.Now(),
+		"created_at": time.Now().Add(7 * time.Hour),
 	}
 
 	id, err := h.messageService.SaveMessage(ctx, &dbMsg)
