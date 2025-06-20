@@ -128,7 +128,30 @@ func (s *groupService) GetGroupDetail(ctx context.Context, groupID string) (*mod
 			log.Printf("failed to get react counts for user %s: %v", member.UserID, err)
 			reactCounts = []*models.ReactTypeCountOfUser{}
 		}
-		member.ReactOfUser = reactCounts
+
+		validReacts := []string{"understand", "ok", "done", "help", "unclear"}
+
+		reactMap := make(map[string]int64)
+		for _, reactCount := range reactCounts {
+			reactMap[reactCount.ReactType] = reactCount.Count
+		}
+
+		var finalReactList []*models.ReactTypeCountOfUser 
+		for _, validReact := range validReacts {
+			if reactCount, ok := reactMap[validReact]; ok {
+				finalReactList = append(finalReactList, &models.ReactTypeCountOfUser{
+					ReactType: validReact,
+					Count:     reactCount,
+				})
+			} else {
+				finalReactList = append(finalReactList, &models.ReactTypeCountOfUser{
+					ReactType: validReact,
+					Count:     0,
+				})
+			}
+		}
+
+		member.ReactOfUser = finalReactList
 
 		memberWithInfor = append(memberWithInfor, models.GroupMemberWithUserInfor{
 			GroupMember: member,
