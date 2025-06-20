@@ -531,6 +531,9 @@ func (h *Hub) saveAndBroadcastMessage(msg Message) {
 		CreatedAt:  time.Now(),
 	}
 
+	t, _ := time.Parse(time.RFC3339, msg.Timestamp)
+	adjusted := t.Add(7 * time.Hour)
+	
 	res := map[string]interface{}{
 		"type":                msg.Type,
 		"group_id":            msg.GroupID,
@@ -542,7 +545,7 @@ func (h *Hub) saveAndBroadcastMessage(msg Message) {
 		"is_limit_time_react": false,
 		"not_reacted_members": notReactedMembers,
 		"is_reacted":          false,
-		"created_at":          msg.Timestamp,
+		"created_at":          adjusted,
 	}
 
 	id, err := h.messageService.SaveMessage(ctx, &dbMsg)
