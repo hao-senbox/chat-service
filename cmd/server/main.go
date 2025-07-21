@@ -7,6 +7,7 @@ import (
 	"chat-service/internal/service"
 	"chat-service/internal/socket"
 	"chat-service/pkg/consul"
+	"chat-service/pkg/firebase"
 	"chat-service/pkg/zap"
 	"context"
 	"log"
@@ -54,6 +55,9 @@ func main() {
 		}
 	}()
 
+	client, _, _ := firebase.SetUpFireBase()
+
+
 	groupCollection := mongoClient.Database(cfg.MongoDB).Collection("group")
 	groupMemberCollection := mongoClient.Database(cfg.MongoDB).Collection("group_member")
 	messagesCollection := mongoClient.Database(cfg.MongoDB).Collection("messages")
@@ -61,6 +65,8 @@ func main() {
 	messagesReactCollection := mongoClient.Database(cfg.MongoDB).Collection("messages_react")
 	messagesReadCollection := mongoClient.Database(cfg.MongoDB).Collection("messages_read")
 	messagesVoteCollection := mongoClient.Database(cfg.MongoDB).Collection("messages_vote")
+	emergencyCollection := mongoClient.Database(cfg.MongoDB).Collection("emergency")
+	emergencyLogsCollection := mongoClient.Database(cfg.MongoDB).Collection("emergency_logs")
 	messagesReadRepository := repository.NewReadMessageRepository(messagesReadCollection)
 	if err := messagesReadRepository.EnsureIndexes(context.Background()); err != nil {
 		log.Fatalf("Failed to create indexes: %v", err)
@@ -80,7 +86,9 @@ func main() {
 
 	groupService.SetMessageService(messageService)
 	groupRepository.SetGroupMemberRepo(groupMemberRepository)
-
+	emergencyRepository := repository.NewEmergencyRepository(emergencyCollection)
+	emergencyLogsRepository := repository.NewEmergencyLogsRepository(emergencyLogsCollection)
+	emergencyService := service.NewEmergencyService(emergencyRepository, groupService, userService, emergencyLogsRepository, client)
 	hub := socket.NewHub(messageService, userService, userOnlineRepository, groupService, voteService)
 	go hub.Run()
 	// Set up router with Gin
@@ -88,6 +96,7 @@ func main() {
 	api.RegisterSocketRouters(router, hub, messageService)
 	api.RegisterGroupRouters(router, groupService)
 	api.RegisterChatRouters(router, messageService)
+	api.RegisterEmergencyRouters(router, emergencyService)
 
 	// router.LoadHTMLGlob("web/templates/*")
 	// router.GET("/", func(c *gin.Context) {

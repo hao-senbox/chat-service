@@ -17,6 +17,7 @@ import (
 type UserService interface {
 	GetUserInfor(ctx context.Context, userID string) (*models.UserInfor, error)
 	GetUserOnline(ctx context.Context, userID string) (*models.UserInfor, error)
+	GetTokenUser(ctx context.Context, userID string) (*[]string, error)
 }
 
 type userService struct {
@@ -128,6 +129,10 @@ func (u *userService) GetUserInfor(ctx context.Context, userID string) (*models.
 	}, nil
 }
 
+func (u *userService) GetTokenUser(ctx context.Context, userID string) (*[]string, error) {
+	return u.client.getTokenUser(ctx, userID)
+}
+
 func safeString(val interface{}) string {
 	if val == nil {
 		return ""
@@ -164,4 +169,43 @@ func (c *callAPI) GetUserInfor(userID string, token string) (map[string]interfac
 	myMap := userData.(map[string]interface{})
 
 	return myMap, nil
+}
+
+func (c *callAPI) getTokenUser(ctx context.Context, userID string) (*[]string, error) {
+	
+	token, ok := ctx.Value(constants.TokenKey).(string)
+	if !ok {
+		return nil, fmt.Errorf("token not found in context")
+	}
+
+	endpoint := fmt.Sprintf("/v1/user-token-fcm/all/%s", userID)
+	fmt.Printf("endpoint: %s\n", endpoint)
+	header := map[string]string{
+		"Content-Type":  "application/json",
+		"Authorization": "Bearer " + token,
+	}
+	res, err := c.client.CallAPI(c.clientServer, endpoint, http.MethodGet, nil, header)
+	if err != nil {
+		fmt.Printf("Error calling API: %v\n", err)
+		return nil, err
+	}
+
+	var userData map[string]interface{}
+	err = json.Unmarshal([]byte(res), &userData)
+	if err != nil {
+		return nil, fmt.Errorf("error unmarshalling: %v", err)
+	}
+
+	rawTokens, ok := userData["data"].([]interface{})
+	if !ok {
+		return nil, nil
+	}
+
+	tokens := make([]string, len(rawTokens))
+	for i, t := range rawTokens {
+		tokens[i] = fmt.Sprintf("%v", t)
+	}
+
+	return &tokens, nil
+
 }

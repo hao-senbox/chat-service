@@ -58,3 +58,10 @@ type Panigination struct {
 	Page  int `form:"page"`
 	Limit int `form:"limit"`
 }
+
+type EmergencyRequest struct {
+	GroupID string  `json:"group_id"`
+	UserID  string  `json:"user_id"`
+	Type    string  `json:"type"`
+	Message *string `json:"message"`
+}
