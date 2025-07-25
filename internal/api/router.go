@@ -49,3 +49,12 @@ func RegisterGroupRouters(r *gin.Engine, groupService service.GroupService) {
 		groupGroup.DELETE("/user/:group_id", handlers.RemoveUserFromGroup)
 	}
 }
+
+func RegisterEmergencyRouters(r *gin.Engine, emergencyService service.EmergencyService) {
+	handlers := NewEmergencyService(emergencyService)
+
+	emergencyGroup := r.Group("/api/v1/emergency", Secured())
+	{
+		emergencyGroup.POST("", handlers.CreateEmergency)
+	}	
+}

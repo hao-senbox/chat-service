@@ -15,17 +15,24 @@ type APIResponse struct {
 }
 
 type GroupMemberResponse struct {
-	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	GroupID    primitive.ObjectID `bson:"group_id" json:"group_id"`
-	UserID     string             `bson:"user_id" json:"user_id"`
-	UserInfor  *UserInfor         `bson:"user_infor" json:"user_infor"`
-	Permission Permission         `bson:"permission" json:"permission"`
-	CreatedAt  time.Time          `bson:"created_at" json:"created_at"`
-	UpdateAt   time.Time          `bson:"update_at" json:"update_at"`
+	ID          primitive.ObjectID     `bson:"_id,omitempty" json:"id,omitempty"`
+	GroupID     primitive.ObjectID     `bson:"group_id" json:"group_id"`
+	UserID      string                 `bson:"user_id" json:"user_id"`
+	ReactOfUser []*ReactTypeCountOfUser `bson:"react_of_user" json:"react_of_user"`
+	UserInfor   *UserInfor             `bson:"user_infor" json:"user_infor"`
+	Permission  Permission             `bson:"permission" json:"permission"`
+	CreatedAt   time.Time              `bson:"created_at" json:"created_at"`
+	UpdateAt    time.Time              `bson:"update_at" json:"update_at"`
+}
+
+type ReactTypeCountOfUser struct {
+	ReactType string `json:"react_type" bson:"react_type"`
+	Count     int64  `json:"count" bson:"count"`
 }
 
 type GroupWithMembers struct {
 	Group   Group                      `json:"group"`
+	TotalMessageOfGroup int          `json:"total_message_of_group"`
 	Members []GroupMemberWithUserInfor `json:"members"`
 }
 
@@ -46,11 +53,11 @@ type QrCodeData struct {
 }
 
 type PaniginationResponse struct {
-	TotalItems int64 `json:"total"`
-	TotalPages int   `json:"total_pages"`
-	Limit int `json:"limit"`
-	Page  int `json:"page"`
-	Data  interface{} `json:"data"`
+	TotalItems int64       `json:"total"`
+	TotalPages int         `json:"total_pages"`
+	Limit      int         `json:"limit"`
+	Page       int         `json:"page"`
+	Data       interface{} `json:"data"`
 }
 
 const (

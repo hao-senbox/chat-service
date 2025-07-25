@@ -3,7 +3,9 @@ package repository
 import (
 	"chat-service/internal/models"
 	"context"
+	"fmt"
 	"time"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -13,6 +15,8 @@ type MessageReactRepository interface {
 	InsertMessageReact(ctx context.Context, reactMessage *models.MessageReact) error
 	GetMessageReact(ctx context.Context, messageID primitive.ObjectID, groupID primitive.ObjectID) ([]*models.MessageReact, error)
 	DeleteMessageReacts(ctx context.Context, messageID primitive.ObjectID, groupID primitive.ObjectID) error
+	CountMessageUserReacted(ctx context.Context, groupID primitive.ObjectID, userID string) (int, error)
+	GetUserReactCountsInGroup(ctx context.Context, userID string, groupID primitive.ObjectID) ([]*models.ReactTypeCountOfUser, error)
 }
 
 type messageReactRepository struct {
@@ -139,4 +143,71 @@ func (r *messageReactRepository) DeleteMessageReacts(ctx context.Context, messag
 	}
 
 	return nil
+}
+
+func (r *messageReactRepository) CountMessageUserReacted(ctx context.Context, groupID primitive.ObjectID, userID string) (int, error) {
+
+	filter := bson.M{
+		"group_id": groupID,
+		"user_reacts.user_id": userID,
+	}
+
+	count, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(count), nil
+	
+}
+
+func (r *messageReactRepository) GetUserReactCountsInGroup(ctx context.Context, userID string, groupID primitive.ObjectID) ([]*models.ReactTypeCountOfUser, error) {
+	
+	pipeline := mongo.Pipeline{
+
+		{
+			{Key: "$match", Value: bson.M{
+				"group_id": groupID,
+				"user_reacts.user_id": userID,
+			}},
+		},
+
+		{
+			{Key: "$unwind", Value: "$user_reacts"},
+		},
+
+		{
+			{Key: "$match", Value: bson.M{
+				"user_reacts.user_id": userID,
+			}},
+		},
+
+		{
+			{Key: "$group", Value: bson.M{
+				"_id": "$react",
+				"total_count": bson.M{"$sum": "$user_reacts.count"},
+			}},
+		},
+
+		{
+			{Key: "$project", Value: bson.M{
+				"react_type": "$_id",
+				"count": "$total_count",
+				"_id": 0,
+			}},
+		},
+	}
+
+	cursor, err := r.collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, fmt.Errorf("failed to aggregate user react counts: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var results []*models.ReactTypeCountOfUser
+	if err := cursor.All(ctx, &results); err != nil {
+		return nil, fmt.Errorf("failed to decode react counts: %w", err)
+	}
+
+	return results, nil
 }

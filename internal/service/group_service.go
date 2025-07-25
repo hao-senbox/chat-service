@@ -29,20 +29,28 @@ type GroupService interface {
 }
 
 type groupService struct {
-	groupRepository     repository.GroupRepository
-	groupUserRepository repository.GroupMemberRepository
-	messagesRepository  repository.MessagesRepository
-	chatService         ChatService
-	userService         UserService
+	groupRepository         repository.GroupRepository
+	groupUserRepository     repository.GroupMemberRepository
+	messagesRepository      repository.MessagesRepository
+	messagesReactRepository repository.MessageReactRepository
+	chatService             ChatService
+	userService             UserService
 }
 
-func NewGroupService(groupRepository repository.GroupRepository, groupUserRepository repository.GroupMemberRepository, messagesRepository repository.MessagesRepository, userService UserService, chachatService ChatService) GroupService {
+func NewGroupService(groupRepository repository.GroupRepository,
+	groupUserRepository repository.GroupMemberRepository,
+	messagesRepository repository.MessagesRepository,
+	userService UserService,
+	chatService ChatService,
+	messagesReactRepository repository.MessageReactRepository,
+	) GroupService {
 	return &groupService{
-		groupRepository:     groupRepository,
-		groupUserRepository: groupUserRepository,
-		messagesRepository:  messagesRepository,
-		userService:         userService,
-		chatService:         chachatService,
+		groupRepository:         groupRepository,
+		groupUserRepository:     groupUserRepository,
+		messagesRepository:      messagesRepository,
+		userService:             userService,
+		messagesReactRepository: messagesReactRepository,
+		chatService:             chatService,
 	}
 }
 
@@ -115,13 +123,50 @@ func (s *groupService) GetGroupDetail(ctx context.Context, groupID string) (*mod
 			return nil, fmt.Errorf("failed to get user infor: %w", err)
 		}
 
+		reactCounts, err := s.messagesReactRepository.GetUserReactCountsInGroup(ctx, member.UserID, objectID)
+		if err != nil {
+			log.Printf("failed to get react counts for user %s: %v", member.UserID, err)
+			reactCounts = []*models.ReactTypeCountOfUser{}
+		}
+
+		validReacts := []string{"understand", "ok", "done", "help", "unclear"}
+
+		reactMap := make(map[string]int64)
+		for _, reactCount := range reactCounts {
+			reactMap[reactCount.ReactType] = reactCount.Count
+		}
+
+		var finalReactList []*models.ReactTypeCountOfUser 
+		for _, validReact := range validReacts {
+			if reactCount, ok := reactMap[validReact]; ok {
+				finalReactList = append(finalReactList, &models.ReactTypeCountOfUser{
+					ReactType: validReact,
+					Count:     reactCount,
+				})
+			} else {
+				finalReactList = append(finalReactList, &models.ReactTypeCountOfUser{
+					ReactType: validReact,
+					Count:     0,
+				})
+			}
+		}
+
+		member.ReactOfUser = finalReactList
+
 		memberWithInfor = append(memberWithInfor, models.GroupMemberWithUserInfor{
 			GroupMember: member,
 		})
 	}
 
+	totalMessage, err := s.messagesRepository.GetCountMessageGroup(ctx, objectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get total message of group: %w", err)
+	}
+
+
 	result = &models.GroupWithMembers{
 		Group:   *group,
+		TotalMessageOfGroup: totalMessage,
 		Members: memberWithInfor,
 	}
 
@@ -133,6 +178,20 @@ func (s *groupService) GetUserGroups(ctx context.Context, userID string) ([]*mod
 	groupUser, err := s.groupRepository.GetUserGroups(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user group data: %w", err)
+	}
+
+	for _, group := range groupUser {
+		countMessages, err := s.messagesRepository.CountNonUserMessage(ctx, group.ID, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to count non user message: %w", err)
+		}
+	
+		countReactUser, err := s.messagesReactRepository.CountMessageUserReacted(ctx, group.ID, userID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to count message user reacted: %w", err)
+		}
+		countMessagesGroup := countMessages - countReactUser
+		group.UnreadCount = countMessagesGroup
 	}
 
 	return groupUser, nil
@@ -152,10 +211,19 @@ func (s *groupService) CreateGroup(ctx context.Context, group *models.GroupReque
 		return fmt.Errorf("created by cannot be empty")
 	}
 
+	if group.LimitTimeReact == 0 {
+		return fmt.Errorf("limit time react cannot be empty")
+	}
+
+	if group.LimitTimeReact < 0 {
+		return fmt.Errorf("limit time react cannot be negative")
+	}
+
 	groupInfor := models.Group{
 		Name:        group.Name,
 		Description: group.Description,
 		GroupQr:     []models.GroupQrCode{},
+		LimitTimeReact: group.LimitTimeReact,
 		CreatedBy:   group.CreatedBy,
 		CreatedAt:   time.Now(),
 		UpdateAt:    time.Now(),
@@ -169,7 +237,7 @@ func (s *groupService) CreateGroup(ctx context.Context, group *models.GroupReque
 }
 
 func (s *groupService) AddUserToGroup(ctx context.Context, group *models.GroupUserRequest) error {
-	// Kiểm tra ID hợp lệ
+
 	if group.GroupID == "" {
 		return fmt.Errorf("group id cannot be empty")
 	}
@@ -183,7 +251,6 @@ func (s *groupService) AddUserToGroup(ctx context.Context, group *models.GroupUs
 		return err
 	}
 
-	// Kiểm tra group tồn tại
 	_, err = s.groupRepository.GetGroupDetail(ctx, objectID)
 	if err != nil {
 		return fmt.Errorf("failed to get group detail: %w", err)

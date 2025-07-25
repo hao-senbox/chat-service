@@ -7,6 +7,7 @@ import (
 	"chat-service/internal/service"
 	"chat-service/internal/socket"
 	"chat-service/pkg/consul"
+	"chat-service/pkg/firebase"
 	"chat-service/pkg/zap"
 	"context"
 	"log"
@@ -54,6 +55,9 @@ func main() {
 		}
 	}()
 
+	client, _, _ := firebase.SetUpFireBase()
+
+
 	groupCollection := mongoClient.Database(cfg.MongoDB).Collection("group")
 	groupMemberCollection := mongoClient.Database(cfg.MongoDB).Collection("group_member")
 	messagesCollection := mongoClient.Database(cfg.MongoDB).Collection("messages")
@@ -61,6 +65,8 @@ func main() {
 	messagesReactCollection := mongoClient.Database(cfg.MongoDB).Collection("messages_react")
 	messagesReadCollection := mongoClient.Database(cfg.MongoDB).Collection("messages_read")
 	messagesVoteCollection := mongoClient.Database(cfg.MongoDB).Collection("messages_vote")
+	emergencyCollection := mongoClient.Database(cfg.MongoDB).Collection("emergency")
+	emergencyLogsCollection := mongoClient.Database(cfg.MongoDB).Collection("emergency_logs")
 	messagesReadRepository := repository.NewReadMessageRepository(messagesReadCollection)
 	if err := messagesReadRepository.EnsureIndexes(context.Background()); err != nil {
 		log.Fatalf("Failed to create indexes: %v", err)
@@ -71,7 +77,7 @@ func main() {
 	messagesRepository := repository.NewChatRepository(messagesCollection, groupMemberCollection)
 	groupRepository := repository.NewGroupRepository(groupCollection, groupMemberCollection, nil)
 	groupMemberRepository := repository.NewGroupMemberRepository(groupMemberCollection, groupRepository)
-	groupService := service.NewGroupService(groupRepository, groupMemberRepository, messagesRepository, userService, nil)
+	groupService := service.NewGroupService(groupRepository, groupMemberRepository, messagesRepository, userService, nil, messagesReactRepository)
 	messageService := service.NewChatService(consulClient ,messagesRepository, messagesReadRepository, groupService, userService, messagesReactRepository)
 	
 	messageVoteRepository := repository.NewVoteRepository(messagesVoteCollection)
@@ -80,7 +86,9 @@ func main() {
 
 	groupService.SetMessageService(messageService)
 	groupRepository.SetGroupMemberRepo(groupMemberRepository)
-
+	emergencyRepository := repository.NewEmergencyRepository(emergencyCollection)
+	emergencyLogsRepository := repository.NewEmergencyLogsRepository(emergencyLogsCollection)
+	emergencyService := service.NewEmergencyService(emergencyRepository, groupService, userService, emergencyLogsRepository, client)
 	hub := socket.NewHub(messageService, userService, userOnlineRepository, groupService, voteService)
 	go hub.Run()
 	// Set up router with Gin
@@ -88,12 +96,23 @@ func main() {
 	api.RegisterSocketRouters(router, hub, messageService)
 	api.RegisterGroupRouters(router, groupService)
 	api.RegisterChatRouters(router, messageService)
+<<<<<<< HEAD
 	// router.LoadHTMLGlob("web/templates/*")
 	// router.GET("/", func(c *gin.Context) {
 	// 	c.HTML(http.StatusOK ,"home.html", gin.H{
 	// 	})
 	// })
 
+=======
+	api.RegisterEmergencyRouters(router, emergencyService)
+
+	// router.LoadHTMLGlob("web/templates/*")
+	// router.GET("/", func(c *gin.Context) {
+	// 	c.HTML(http.StatusOK ,"home.html", gin.H{
+	// 	})
+	// })
+
+>>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
 	// router.GET("/chat/:group_id", func(c *gin.Context) {
 	// 	groupID := c.Param("group_id")
 		
@@ -101,7 +120,11 @@ func main() {
 	// 	c.HTML(http.StatusOK, "chat.html", gin.H{
 	// 		"groupID": groupID,
 	// 		"title": "Group Chat",
+<<<<<<< HEAD
 	// 	})
+=======
+	// 	})	
+>>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
 	// })
 
 
@@ -143,7 +166,6 @@ func connectToMongoDB(uri string) (*mongo.Client, error) {
 		return nil, err
 	}
 
-	// Check connection
 	if err := client.Ping(ctx, readpref.Primary()); err != nil {
 		log.Println("Failed to ping to MongoDB")
 		return nil, err
