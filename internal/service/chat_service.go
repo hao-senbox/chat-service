@@ -165,10 +165,6 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 		} else {
 			fetchedInfo, err := s.userService.GetUserInfor(ctx, msg.SenderID)
 			if err != nil {
-<<<<<<< HEAD
-				fmt.Printf("(ChatService) 1 - Failed to get user info for %s: %v\n", msg.SenderID, err)
-=======
->>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
 				fetchedInfo = &models.UserInfor{}
 			}
 			userInfo = &models.UserInfor{
@@ -183,20 +179,6 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 		if err != nil {
 			return nil, 0, err
 		}
-<<<<<<< HEAD
-
-		for _, react := range reacts {
-			for i := range react.UserReact {
-				userID := react.UserReact[i].UserID
-
-				if cached, ok := userCache[userID]; ok {
-					react.UserReact[i].UserInfor = cached
-				} else {
-					fetchedInfo, err := s.userService.GetUserInfor(ctx, userID)
-					if err != nil {
-						fmt.Printf("(ChatService) 2 - Failed to get user info for %s: %v\n", userID, err)
-						fetchedInfo = &models.UserInfor{}
-=======
 		isUnread := false
 		if msg.SenderID == *userID {
 			isUnread = true
@@ -206,7 +188,6 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 					if userReact.UserID == *userID {
 						isUnread = true
 						break
->>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
 					}
 				}
 				if !isUnread {
@@ -277,7 +258,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 		isLimitTimeReact := false
 		if groupDetail.Group.LimitTimeReact > 0 {
 			expireTime := msg.CreatedAt.Add(time.Duration(groupDetail.Group.LimitTimeReact) * time.Minute)
-			
+
 			if time.Now().After(expireTime) {
 				isLimitTimeReact = true
 			}
@@ -327,11 +308,7 @@ func (s *chatService) DownloadGroupMessages(ctx *gin.Context, groupID string, fr
 		return err
 	}
 
-<<<<<<< HEAD
-	messages, _, err := s.GetGroupMessages(c, groupID, from, to, nil)
-=======
 	messages, _, err := s.GetGroupMessages(c, groupID, nil, from, to, nil)
->>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
 	if err != nil {
 		return err
 	}

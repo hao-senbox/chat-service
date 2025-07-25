@@ -15,9 +15,6 @@ DELETE  /api/v1/group/:group_id
 POST    /api/v1/group/user
 POST    /api/v1/group/join_group/by_qrcode
 GET     /api/v1/group/user
-<<<<<<< HEAD
-DELETE  /api/v1/group/user/:group_id
-=======
 DELETE  /api/v1/group/user/:group_id
 
 func (h *Hub) createAndBroadcastVote(msg Message) {
@@ -89,4 +86,3 @@ func (h *Hub) createAndBroadcastVote(msg Message) {
 	h.sendToGroup(msg.GroupID, updatedMessage)
 
 }
->>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7

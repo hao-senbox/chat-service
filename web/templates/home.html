@@ -36,14 +36,9 @@
 
   <script>
     const userId =  "{{ .userID }}";  
-<<<<<<< HEAD
-    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMzMDE0MzksIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiIzMmQyODg1MC00NzQzLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6Im1lc3NpIn0.mQkUPfb87TpNznRkOW5TaC_xZni2oeAtH6VL0LdThR4';
-    // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTMyOTc2MDUsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiI0NWY3N2FjYS00NzNhLTExZjAtODk0Zi0wMjQyYzBhODkwMDYiLCJ1c2VybmFtZSI6InZvYW5oaGFvXzIifQ.J33y9u4Oqx5uX-kpQwiuGis7HKiZ_8Mn6rrdGCiMUHs';
-=======
     // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0OTI2NzcsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiI3NWE1YjQxMi00OTAwLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6Imtha2EifQ.NeWU9fSf4tN7YfAwXZKX3sZeHPO3wETVIQduKHOvSp4'
     const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0ODQyMDEsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiJiOTg3ZTgyOC00OGVjLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6InJvbmFsZG8ifQ.vkSWy0mtcyG9ZmcLT8_s5JgQnUjJ5d5bmSubfsGfhlg';
     // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0ODQzNjYsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiIxYzA3NTNhYi00OGVkLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6Im1lc3NpIn0.VZ8ldwLD4OujC7PO0xbtIThRZArT8vkSzy4pQG7RCcg';
->>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
     async function loadGroups() {
       try {
         const response = await fetch('/api/v1/group/user', {

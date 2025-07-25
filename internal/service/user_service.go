@@ -17,10 +17,7 @@ import (
 type UserService interface {
 	GetUserInfor(ctx context.Context, userID string) (*models.UserInfor, error)
 	GetUserOnline(ctx context.Context, userID string) (*models.UserInfor, error)
-<<<<<<< HEAD
-=======
 	GetTokenUser(ctx context.Context, userID string) (*[]string, error)
->>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
 }
 
 type userService struct {
@@ -77,10 +74,6 @@ func (u *userService) GetUserOnline(ctx context.Context, userID string) (*models
 	}
 
 	userInfor, err := u.GetUserInfor(ctx, userID)
-<<<<<<< HEAD
-=======
-
->>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
 	if err != nil {
 		return nil, err
 	}
@@ -96,23 +89,6 @@ func (u *userService) GetUserOnline(ctx context.Context, userID string) (*models
 }
 
 func (u *userService) GetUserInfor(ctx context.Context, userID string) (*models.UserInfor, error) {
-<<<<<<< HEAD
-	token, ok := ctx.Value(constants.TokenKey).(string)
-	if !ok {
-		return nil, fmt.Errorf("token not found in context")
-	}
-
-	data, err := u.client.GetUserInfor(userID, token)
-	if err != nil {
-		return nil, err
-	}
-
-	if data == nil {
-		return nil, fmt.Errorf("no user data found for userID: %s", userID)
-	}
-
-	innerData, ok := data["data"].(map[string]interface{})
-=======
 
 	token, ok := ctx.Value(constants.TokenKey).(string)
 	if !ok {
@@ -130,7 +106,6 @@ func (u *userService) GetUserInfor(ctx context.Context, userID string) (*models.
 
 	innerData, ok := data["data"].(map[string]interface{})
 
->>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
 	if !ok {
 		return nil, fmt.Errorf("invalid response format: missing 'data' field")
 	}
@@ -153,13 +128,10 @@ func (u *userService) GetUserInfor(ctx context.Context, userID string) (*models.
 	}, nil
 }
 
-<<<<<<< HEAD
-=======
 func (u *userService) GetTokenUser(ctx context.Context, userID string) (*[]string, error) {
 	return u.client.getTokenUser(ctx, userID)
 }
 
->>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
 func safeString(val interface{}) string {
 	if val == nil {
 		return ""
@@ -199,7 +171,7 @@ func (c *callAPI) GetUserInfor(userID string, token string) (map[string]interfac
 }
 
 func (c *callAPI) getTokenUser(ctx context.Context, userID string) (*[]string, error) {
-	
+
 	token, ok := ctx.Value(constants.TokenKey).(string)
 	if !ok {
 		return nil, fmt.Errorf("token not found in context")

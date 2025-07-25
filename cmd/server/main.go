@@ -57,7 +57,6 @@ func main() {
 
 	client, _, _ := firebase.SetUpFireBase()
 
-
 	groupCollection := mongoClient.Database(cfg.MongoDB).Collection("group")
 	groupMemberCollection := mongoClient.Database(cfg.MongoDB).Collection("group_member")
 	messagesCollection := mongoClient.Database(cfg.MongoDB).Collection("messages")
@@ -78,11 +77,10 @@ func main() {
 	groupRepository := repository.NewGroupRepository(groupCollection, groupMemberCollection, nil)
 	groupMemberRepository := repository.NewGroupMemberRepository(groupMemberCollection, groupRepository)
 	groupService := service.NewGroupService(groupRepository, groupMemberRepository, messagesRepository, userService, nil, messagesReactRepository)
-	messageService := service.NewChatService(consulClient ,messagesRepository, messagesReadRepository, groupService, userService, messagesReactRepository)
-	
+	messageService := service.NewChatService(consulClient, messagesRepository, messagesReadRepository, groupService, userService, messagesReactRepository)
+
 	messageVoteRepository := repository.NewVoteRepository(messagesVoteCollection)
 	voteService := service.NewVoteService(messageVoteRepository)
-	
 
 	groupService.SetMessageService(messageService)
 	groupRepository.SetGroupMemberRepo(groupMemberRepository)
@@ -96,14 +94,6 @@ func main() {
 	api.RegisterSocketRouters(router, hub, messageService)
 	api.RegisterGroupRouters(router, groupService)
 	api.RegisterChatRouters(router, messageService)
-<<<<<<< HEAD
-	// router.LoadHTMLGlob("web/templates/*")
-	// router.GET("/", func(c *gin.Context) {
-	// 	c.HTML(http.StatusOK ,"home.html", gin.H{
-	// 	})
-	// })
-
-=======
 	api.RegisterEmergencyRouters(router, emergencyService)
 
 	// router.LoadHTMLGlob("web/templates/*")
@@ -112,26 +102,19 @@ func main() {
 	// 	})
 	// })
 
->>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
 	// router.GET("/chat/:group_id", func(c *gin.Context) {
 	// 	groupID := c.Param("group_id")
-		
+
 	// 	// Pass these values to the template
 	// 	c.HTML(http.StatusOK, "chat.html", gin.H{
 	// 		"groupID": groupID,
 	// 		"title": "Group Chat",
-<<<<<<< HEAD
 	// 	})
-=======
-	// 	})	
->>>>>>> 48320f7136fdd52eb650afbd1496544fb0d656f7
 	// })
 
-
-	// Initialize HTTP server
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: router,	
+		Handler: router,
 	}
 
 	// Run server in a separate goroutine
@@ -174,4 +157,3 @@ func connectToMongoDB(uri string) (*mongo.Client, error) {
 	log.Println("Successfully connected to MongoDB")
 	return client, nil
 }
-
