@@ -32,7 +32,9 @@ COPY ./.env /root/.env
 # Copy the wait-for-it.sh script into the container
 COPY ./scripts/wait-for-it.sh /wait-for-it.sh
 RUN chmod +x /wait-for-it.sh
+
 COPY ./credentials /root/credentials
+
 # Expose the necessary port
 EXPOSE 8007
 
