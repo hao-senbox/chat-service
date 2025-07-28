@@ -15,14 +15,14 @@ type APIResponse struct {
 }
 
 type GroupMemberResponse struct {
-	ID          primitive.ObjectID     `bson:"_id,omitempty" json:"id,omitempty"`
-	GroupID     primitive.ObjectID     `bson:"group_id" json:"group_id"`
-	UserID      string                 `bson:"user_id" json:"user_id"`
+	ID          primitive.ObjectID      `bson:"_id,omitempty" json:"id,omitempty"`
+	GroupID     primitive.ObjectID      `bson:"group_id" json:"group_id"`
+	UserID      string                  `bson:"user_id" json:"user_id"`
 	ReactOfUser []*ReactTypeCountOfUser `bson:"react_of_user" json:"react_of_user"`
-	UserInfor   *UserInfor             `bson:"user_infor" json:"user_infor"`
-	Permission  Permission             `bson:"permission" json:"permission"`
-	CreatedAt   time.Time              `bson:"created_at" json:"created_at"`
-	UpdateAt    time.Time              `bson:"update_at" json:"update_at"`
+	UserInfor   *UserInfor              `bson:"user_infor" json:"user_infor"`
+	Permission  Permission              `bson:"permission" json:"permission"`
+	CreatedAt   time.Time               `bson:"created_at" json:"created_at"`
+	UpdateAt    time.Time               `bson:"update_at" json:"update_at"`
 }
 
 type ReactTypeCountOfUser struct {
@@ -31,9 +31,9 @@ type ReactTypeCountOfUser struct {
 }
 
 type GroupWithMembers struct {
-	Group   Group                      `json:"group"`
-	TotalMessageOfGroup int          `json:"total_message_of_group"`
-	Members []GroupMemberWithUserInfor `json:"members"`
+	Group               Group                      `json:"group"`
+	TotalMessageOfGroup int                        `json:"total_message_of_group"`
+	Members             []GroupMemberWithUserInfor `json:"members"`
 }
 
 type GroupMemberWithUserInfor struct {
@@ -58,6 +58,27 @@ type PaniginationResponse struct {
 	Limit      int         `json:"limit"`
 	Page       int         `json:"page"`
 	Data       interface{} `json:"data"`
+}
+
+type EmergencyLogsResponse struct {
+	ID            string `bson:"_id,omitempty" json:"id,omitempty"`
+	EmergencyID   string `bson:"emergency_id" json:"emergency_id"`
+	GroupResponse GroupResponse      `bson:"group" json:"group"`
+	UserID        string             `bson:"user_id" json:"user_id"`
+	Status        string             `bson:"status" json:"status"`
+	Type          string             `bson:"type" json:"type"`
+	IsSender      bool               `bson:"is_sender" json:"is_sender"`
+	Message       *string            `bson:"message" json:"message"`
+	CreatedAt     time.Time          `bson:"created_at" json:"created_at"`
+	UpdateAt      time.Time          `bson:"update_at" json:"update_at"`
+}
+
+type GroupResponse struct {
+	ID          string `bson:"_id,omitempty" json:"id,omitempty"`
+	Name        string             `bson:"name" json:"name"`
+	Description string             `bson:"description" json:"description"`
+	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
+	UpdateAt    time.Time          `bson:"update_at" json:"update_at"`
 }
 
 const (

@@ -56,5 +56,6 @@ func RegisterEmergencyRouters(r *gin.Engine, emergencyService service.EmergencyS
 	emergencyGroup := r.Group("/api/v1/emergency", Secured())
 	{
 		emergencyGroup.POST("", handlers.CreateEmergency)
+		emergencyGroup.GET("", handlers.GetNotificationsUser)
 	}	
 }
