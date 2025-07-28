@@ -43,6 +43,31 @@ func (h *EmergencyHandlers) CreateEmergency(c *gin.Context) {
 	}
 
 	SendSuccess(c, http.StatusOK, "Emergency created successfully", nil)
-	
+
 }
 
+func (h *EmergencyHandlers) GetNotificationsUser(c *gin.Context) {
+
+	userID := c.Value("user_id").(string)
+	if userID == "" {
+		SendError(c, http.StatusBadRequest, nil, models.ErrInvalidRequest)
+		return
+	}
+
+	token, ok := c.Get(constants.Token)
+	if !ok {
+		SendError(c, http.StatusForbidden, errors.New("unauthorized"), models.ErrInvalidRequest)
+		return
+	}
+
+	ctx := context.WithValue(c, constants.TokenKey, token)
+
+	notifications, err := h.emergencyService.GetNotificationsUser(ctx, userID)
+	if err != nil {
+		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
+		return
+	}
+
+	SendSuccess(c, http.StatusOK, "Get notifications successfully", notifications)
+
+}

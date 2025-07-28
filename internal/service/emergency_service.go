@@ -15,6 +15,7 @@ import (
 
 type EmergencyService interface {
 	CreateEmergency(ctx context.Context, req *models.EmergencyRequest) error
+	GetNotificationsUser(ctx context.Context, userID string) ([]*models.EmergencyLogsResponse, error)
 }
 
 type emergencyService struct {
@@ -167,4 +168,42 @@ func (s *emergencyService) sendToToken(token string) error {
 
 	return nil
 
+}
+
+func (s *emergencyService) GetNotificationsUser(ctx context.Context, userID string) ([]*models.EmergencyLogsResponse, error) {
+	var result []*models.EmergencyLogsResponse
+	emergencies, err := s.emergencyLogsRepository.GetNotificationsUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, emergency := range emergencies {
+		group, err := s.groupService.GetGroupDetail(ctx, emergency.GroupID.Hex())
+		if err != nil {
+			return nil, err
+		}
+
+		emergencyResponse := &models.EmergencyLogsResponse{
+			ID:          emergency.ID.Hex(),
+			EmergencyID: emergency.EmergencyID.Hex(),
+			GroupResponse: models.GroupResponse{
+				ID:          group.Group.ID.Hex(),
+				Name:        group.Group.Name,
+				Description: group.Group.Description,
+				CreatedAt:   group.Group.CreatedAt,
+				UpdateAt:    group.Group.UpdateAt,
+			},
+			UserID:      emergency.UserID,
+			Type:        emergency.Type,
+			Status:      emergency.Status,
+			IsSender:    emergency.IsSender,
+			Message:     emergency.Message,
+			CreatedAt:   emergency.CreatedAt,
+			UpdateAt:    emergency.UpdateAt,
+		}
+
+		result = append(result, emergencyResponse)
+	}
+
+	return result, nil
 }
