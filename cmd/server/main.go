@@ -113,7 +113,7 @@ func main() {
 	// 	})
 	// })
 	c := cron.New(cron.WithSeconds())
-	_, err = c.AddFunc("0 */1 * * * *", func() {
+	_, err = c.AddFunc("0 */5 * * * *", func() {
 		log.Println("🔄 Cron master running...")
 		ctx := context.WithValue(context.Background(), constants.TokenKey, os.Getenv("CRON_SERVICE_TOKEN"))
 		if err := emergencyService.SenPendingNotifications(ctx); err != nil {
