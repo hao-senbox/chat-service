@@ -18,7 +18,7 @@ type GroupRepository interface {
 	DecrementMemberCount(ctx context.Context, groupID primitive.ObjectID) error
 	UpdateGroup(ctx context.Context, groupID primitive.ObjectID, group *models.GroupRequest) error
 	DeleteGroup(ctx context.Context, groupID primitive.ObjectID) error
-	CreateGroupQrCode(ctx context.Context, groupID primitive.ObjectID, qrCode *models.GroupQrCode) error
+	// CreateGroupQrCode(ctx context.Context, groupID primitive.ObjectID, qrCode *models.GroupQrCode) error
 	SetGroupMemberRepo (repo GroupMemberRepository)
 }
 
@@ -267,15 +267,15 @@ func (r *groupMemberRepository) DeleteUserFromGroup(ctx context.Context, groupID
 }
 
 
-func (r *groupRepository) CreateGroupQrCode(ctx context.Context, groupID primitive.ObjectID, qrCode *models.GroupQrCode) error {
+// func (r *groupRepository) CreateGroupQrCode(ctx context.Context, groupID primitive.ObjectID, qrCode *models.GroupQrCode) error {
 	
-	filter := bson.M{"_id": groupID}
-	update := bson.M{"$push": bson.M{"group_qr": qrCode}}
+// 	filter := bson.M{"_id": groupID}
+// 	update := bson.M{"$push": bson.M{"group_qr": qrCode}}
 
-	_, err := r.collection.UpdateOne(ctx, filter, update)
-	if err != nil {
-		return err
-	}
+// 	_, err := r.collection.UpdateOne(ctx, filter, update)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }

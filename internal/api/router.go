@@ -37,7 +37,7 @@ func RegisterGroupRouters(r *gin.Engine, groupService service.GroupService) {
 		groupGroup.GET("/:group_id", handlers.GetGroupDetail)
 		groupGroup.GET("/count/keywod", handlers.CountKeywordAllGroups)
 		groupGroup.POST("", handlers.CreateGroup)
-		groupGroup.POST("/generate/qrcode", handlers.GenerateGroupQrCode)
+		// groupGroup.POST("/generate/qrcode", handlers.GenerateGroupQrCode)
 		groupGroup.PUT("/:group_id", handlers.UpdateGroup)
 		groupGroup.DELETE("/:group_id", handlers.DeleteGroup)
 		
@@ -51,11 +51,13 @@ func RegisterGroupRouters(r *gin.Engine, groupService service.GroupService) {
 }
 
 func RegisterEmergencyRouters(r *gin.Engine, emergencyService service.EmergencyService) {
+	
 	handlers := NewEmergencyService(emergencyService)
 
 	emergencyGroup := r.Group("/api/v1/emergency", Secured())
 	{
 		emergencyGroup.POST("", handlers.CreateEmergency)
 		emergencyGroup.GET("", handlers.GetNotificationsUser)
+		emergencyGroup.PUT("/:emergency_id", handlers.UpdateEmergency)
 	}	
 }
