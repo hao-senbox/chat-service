@@ -711,9 +711,12 @@
             const maxReconnectAttempts = 5;
             let currentReconnectDelay = 500; // ms
             const maxReconnectDelay = 30000; // 30s
-            // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0OTI2NzcsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiI3NWE1YjQxMi00OTAwLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6Imtha2EifQ.NeWU9fSf4tN7YfAwXZKX3sZeHPO3wETVIQduKHOvSp4'
-            const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0ODQyMDEsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiJiOTg3ZTgyOC00OGVjLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6InJvbmFsZG8ifQ.vkSWy0mtcyG9ZmcLT8_s5JgQnUjJ5d5bmSubfsGfhlg';
-            // const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTM0ODQzNjYsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiIxYzA3NTNhYi00OGVkLTExZjAtOTdlMy0wMjQyYzBhOGUwMDYiLCJ1c2VybmFtZSI6Im1lc3NpIn0.VZ8ldwLD4OujC7PO0xbtIThRZArT8vkSzy4pQG7RCcg'
+            // const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTgwNTI1NTksIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1giLCJyb2xlcyI6IlN1cGVyQWRtaW4iLCJ1c2VyX2lkIjoiZjZhZWExMTUtNDYzNy00NjVmLTlkMTUtNWU3N2I5ODg4ZmM5IiwidXNlcm5hbWUiOiJuZ29ja2VtIn0.laLtz29TzrR5CwQPJ-mv4vXISEC-39003BRUF3D-zJc";
+            // const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTgwNTI1OTQsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1giLCJyb2xlcyI6IlN0dWRlbnQsIFRlYWNoZXIsIEFkbWluIiwidXNlcl9pZCI6ImQ4YTc2NGIwLTJjOGUtMTFmMC1iZjhiLTFhZTBkNjVhYjViZiIsInVzZXJuYW1lIjoibXJsb2MifQ.xmAYdKxZ1J51bjcv-CZ_lmrYvAylQRwTTjYGiCQtnSs";
+            // const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTgwNTI2MTQsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiI0MDgzYmM0MC01MjVkLTExZjAtYTI2Yy0yZWRhZjE1YjFhNzUiLCJ1c2VybmFtZSI6Im1yaHVuZyJ9.BhE74y5JP3GQBewfB_18Y74nUww_-H6j04JIR9Mu42U";
+            const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTgwNTI2MzMsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IlBhcmVudCIsInVzZXJfaWQiOiI0ODcyNjE0MC00NWQ1LTExZjAtYmM5Zi0xNmIxMDc2YzdmNWUiLCJ1c2VybmFtZSI6InZvYW5oaGFvIn0.EfzB31mD0ExFZmhcgJJQV1ZJnD7FZSOGZrI4srN7YAk";
+            // const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTgwNTI2NjYsIm9yZ2FuaXphdGlvbnMiOiJTRU5CT1ggV0FJVExJU1QiLCJyb2xlcyI6IiIsInVzZXJfaWQiOiI5YjA5OTY4ZC00YjMwLTExZjAtOGIzNS03YWRlYmY4ZmEwZTYiLCJ1c2VybmFtZSI6Im1ydHJ1bmcifQ.5sbcmwTSxhoywyWAQcPr95O6fs6E_5K_sW_bmVtt290";
+            // const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTgwNTI3MTUsIm9yZ2FuaXphdGlvbnMiOiJIT01FIiwicm9sZXMiOiIiLCJ1c2VyX2lkIjoiMDdjNjE2OTgtNjA1YS0xMWYwLWI4ZDUtMDI0MmFjMTkwMDA3IiwidXNlcm5hbWUiOiJ3YWh0dGhlZnVjayJ9.divbK_TxD34rMfX89HnO4Pxt-Tal5xR8UxNv-14Me6U"
             // Cấu hình heartbeat
             let heartbeatInterval = null;
             const heartbeatTime = 55000; // 55s

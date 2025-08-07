@@ -11,6 +11,7 @@ require (
 	github.com/hashicorp/consul/api v1.32.0
 	github.com/joho/godotenv v1.5.1
 	github.com/natefinch/lumberjack v2.0.0+incompatible
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/spf13/viper v1.20.1
 	go.mongodb.org/mongo-driver v1.17.3
 	go.uber.org/zap v1.27.0

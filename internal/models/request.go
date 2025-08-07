@@ -17,6 +17,7 @@ type EditMessage struct {
 
 type GroupUserRequest struct {
 	GroupID            string `json:"group_id"`
+	Type               string `json:"type"`
 	UserID             string `json:"user_id"`
 	CanRead            bool   `json:"can_read"`
 	CanWrite           bool   `json:"can_write"`

@@ -6,6 +6,7 @@ import (
 	"chat-service/internal/repository"
 	"chat-service/internal/service"
 	"chat-service/internal/socket"
+	"chat-service/pkg/constants"
 	"chat-service/pkg/consul"
 	"chat-service/pkg/firebase"
 	"chat-service/pkg/zap"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/robfig/cron/v3"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -86,7 +88,7 @@ func main() {
 	groupRepository.SetGroupMemberRepo(groupMemberRepository)
 	emergencyRepository := repository.NewEmergencyRepository(emergencyCollection)
 	emergencyLogsRepository := repository.NewEmergencyLogsRepository(emergencyLogsCollection)
-	emergencyService := service.NewEmergencyService(emergencyRepository, groupService, userService, emergencyLogsRepository, client)
+	emergencyService := service.NewEmergencyService(emergencyRepository, groupService, userService, emergencyLogsRepository, groupRepository, messagesRepository, client)
 	hub := socket.NewHub(messageService, userService, userOnlineRepository, groupService, voteService)
 	go hub.Run()
 	// Set up router with Gin
@@ -96,21 +98,34 @@ func main() {
 	api.RegisterChatRouters(router, messageService)
 	api.RegisterEmergencyRouters(router, emergencyService)
 
-	// router.LoadHTMLGlob("web/templates/*")
-	// router.GET("/", func(c *gin.Context) {
-	// 	c.HTML(http.StatusOK ,"home.html", gin.H{
-	// 	})
-	// })
+	router.LoadHTMLGlob("web/templates/*")
+	router.GET("/", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "home.html", gin.H{})
+	})
 
-	// router.GET("/chat/:group_id", func(c *gin.Context) {
-	// 	groupID := c.Param("group_id")
+	router.GET("/chat/:group_id", func(c *gin.Context) {
+		groupID := c.Param("group_id")
 
-	// 	// Pass these values to the template
-	// 	c.HTML(http.StatusOK, "chat.html", gin.H{
-	// 		"groupID": groupID,
-	// 		"title": "Group Chat",
-	// 	})
-	// })
+		// Pass these values to the template
+		c.HTML(http.StatusOK, "chat.html", gin.H{
+			"groupID": groupID,
+			"title":   "Group Chat",
+		})
+	})
+	c := cron.New(cron.WithSeconds())
+	_, err = c.AddFunc("0 */1 * * * *", func() {
+		log.Println("🔄 Cron master running...")
+		ctx := context.WithValue(context.Background(), constants.TokenKey, os.Getenv("CRON_SERVICE_TOKEN"))
+		if err := emergencyService.SenPendingNotifications(ctx); err != nil {
+			log.Printf("CronNotifications failed: %v", err)
+		}
+	})
+	if err != nil {
+		log.Fatalf("AddFunc error: %v", err)
+	}
+
+	c.Start()
+	defer c.Stop()
 
 	server := &http.Server{
 		Addr:    ":" + cfg.Port,

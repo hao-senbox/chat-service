@@ -194,23 +194,23 @@ func (h* GroupHandlers) CountKeywordAllGroups(c *gin.Context) {
 	SendSuccess(c, http.StatusOK, "Count keyword all groups successfully", count)
 }
 
-func (h *GroupHandlers) GenerateGroupQrCode(c *gin.Context) {
+// func (h *GroupHandlers) GenerateGroupQrCode(c *gin.Context) {
 	
-	var req models.GroupQrRequest
+// 	var req models.GroupQrRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		SendError(c, http.StatusBadRequest, err, models.ErrInvalidRequest)
-		return
-	}
+// 	if err := c.ShouldBindJSON(&req); err != nil {
+// 		SendError(c, http.StatusBadRequest, err, models.ErrInvalidRequest)
+// 		return
+// 	}
 
-	qrCodeBase64, err := h.groupService.GenerateGroupQrCode(c, &req)
-	if err != nil {
-		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
-		return
-	}
+// 	qrCodeBase64, err := h.groupService.GenerateGroupQrCode(c, &req)
+// 	if err != nil {
+// 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
+// 		return
+// 	}
 
-	SendSuccess(c, http.StatusOK, "Generate group qr code successfully", qrCodeBase64)
-}
+// 	SendSuccess(c, http.StatusOK, "Generate group qr code successfully", qrCodeBase64)
+// }
 
 func (h *GroupHandlers) JoinGroupByQrCode(c *gin.Context) {
 

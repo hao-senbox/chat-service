@@ -23,7 +23,7 @@ type GroupService interface {
 	DeleteGroup(ctx context.Context, groupID string, req *models.TokenUserRequest) error
 	RemoveUserFromGroup(ctx context.Context, groupID string, group *models.GroupUserRequest) error
 	CountKeywordAllGroups(ctx context.Context, keyword string) (*[]models.KeywordOfAllGroups, error)
-	GenerateGroupQrCode(ctx context.Context, group *models.GroupQrRequest) (string, error)
+	// GenerateGroupQrCode(ctx context.Context, group *models.GroupQrRequest) (string, error)
 	JoinGroupByQrCode(ctx context.Context, group *models.JoinGroupByQrCodeRequest) error
 	SetMessageService(chatService ChatService)
 }
@@ -43,7 +43,7 @@ func NewGroupService(groupRepository repository.GroupRepository,
 	userService UserService,
 	chatService ChatService,
 	messagesReactRepository repository.MessageReactRepository,
-	) GroupService {
+) GroupService {
 	return &groupService{
 		groupRepository:         groupRepository,
 		groupUserRepository:     groupUserRepository,
@@ -136,7 +136,7 @@ func (s *groupService) GetGroupDetail(ctx context.Context, groupID string) (*mod
 			reactMap[reactCount.ReactType] = reactCount.Count
 		}
 
-		var finalReactList []*models.ReactTypeCountOfUser 
+		var finalReactList []*models.ReactTypeCountOfUser
 		for _, validReact := range validReacts {
 			if reactCount, ok := reactMap[validReact]; ok {
 				finalReactList = append(finalReactList, &models.ReactTypeCountOfUser{
@@ -163,11 +163,10 @@ func (s *groupService) GetGroupDetail(ctx context.Context, groupID string) (*mod
 		return nil, fmt.Errorf("failed to get total message of group: %w", err)
 	}
 
-
 	result = &models.GroupWithMembers{
-		Group:   *group,
+		Group:               *group,
 		TotalMessageOfGroup: totalMessage,
-		Members: memberWithInfor,
+		Members:             memberWithInfor,
 	}
 
 	return result, nil
@@ -185,7 +184,7 @@ func (s *groupService) GetUserGroups(ctx context.Context, userID string) ([]*mod
 		if err != nil {
 			return nil, fmt.Errorf("failed to count non user message: %w", err)
 		}
-	
+
 		countReactUser, err := s.messagesReactRepository.CountMessageUserReacted(ctx, group.ID, userID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to count message user reacted: %w", err)
@@ -219,14 +218,18 @@ func (s *groupService) CreateGroup(ctx context.Context, group *models.GroupReque
 		return fmt.Errorf("limit time react cannot be negative")
 	}
 
+	id := primitive.NewObjectID()
+
 	groupInfor := models.Group{
-		Name:        group.Name,
-		Description: group.Description,
-		GroupQr:     []models.GroupQrCode{},
+		ID:             id,
+		Name:           group.Name,
+		Description:    group.Description,
+		GroupQr:        fmt.Sprintf("SENBOX.ORG[EMERGENCY-ROOM]:%s", id.Hex()),
 		LimitTimeReact: group.LimitTimeReact,
-		CreatedBy:   group.CreatedBy,
-		CreatedAt:   time.Now(),
-		UpdateAt:    time.Now(),
+		Type:           "chat",
+		CreatedBy:      group.CreatedBy,
+		CreatedAt:      time.Now(), 
+		UpdateAt:       time.Now(),
 	}
 
 	if err := s.groupRepository.CreateGroup(ctx, &groupInfor); err != nil {
@@ -244,6 +247,10 @@ func (s *groupService) AddUserToGroup(ctx context.Context, group *models.GroupUs
 
 	if group.UserID == "" {
 		return fmt.Errorf("user id cannot be empty")
+	}
+
+	if group.Type == "" {
+		return fmt.Errorf("type cannot be empty")
 	}
 
 	objectID, err := primitive.ObjectIDFromHex(group.GroupID)
@@ -266,6 +273,7 @@ func (s *groupService) AddUserToGroup(ctx context.Context, group *models.GroupUs
 	groupUserInfor := models.GroupMember{
 		GroupID: objectID,
 		UserID:  group.UserID,
+		Type:    group.Type,
 		Permission: models.Permission{
 			CanRead:            group.CanRead,
 			CanWrite:           group.CanWrite,
@@ -379,69 +387,69 @@ func (s *groupService) CountKeywordAllGroups(ctx context.Context, keyword string
 	return &result, nil
 }
 
-func (s *groupService) GenerateGroupQrCode(ctx context.Context, group *models.GroupQrRequest) (string, error) {
+// func (s *groupService) GenerateGroupQrCode(ctx context.Context, group *models.GroupQrRequest) (string, error) {
 
-	if group.GroupID == "" {
-		return "", fmt.Errorf("group id cannot be empty")
-	}
+// 	if group.GroupID == "" {
+// 		return "", fmt.Errorf("group id cannot be empty")
+// 	}
 
-	objectID, err := primitive.ObjectIDFromHex(group.GroupID)
-	if err != nil {
-		return "", err
-	}
+// 	objectID, err := primitive.ObjectIDFromHex(group.GroupID)
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-	_, err = s.groupRepository.GetGroupDetail(ctx, objectID)
-	if err != nil {
-		return "", fmt.Errorf("failed to get group detail: %w", err)
-	}
+// 	_, err = s.groupRepository.GetGroupDetail(ctx, objectID)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to get group detail: %w", err)
+// 	}
 
-	qrCode := models.QrCodeData{
-		GroupID: objectID,
-		Permission: models.Permission{
-			CanRead:            group.CanRead,
-			CanWrite:           group.CanWrite,
-			CanEdit:            group.CanEdit,
-			CanSendImages:      group.CanSendImages,
-			CanUseCameraDevice: group.CanUseCameraDevice,
-		},
-		ExpiryTime: time.Now().Add(1 * time.Hour),
-	}
+// 	qrCode := models.QrCodeData{
+// 		GroupID: objectID,
+// 		Permission: models.Permission{
+// 			CanRead:            group.CanRead,
+// 			CanWrite:           group.CanWrite,
+// 			CanEdit:            group.CanEdit,
+// 			CanSendImages:      group.CanSendImages,
+// 			CanUseCameraDevice: group.CanUseCameraDevice,
+// 		},
+// 		ExpiryTime: time.Now().Add(1 * time.Hour),
+// 	}
 
-	qrCodeJson, err := json.Marshal(qrCode)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal qr code: %w", err)
-	}
+// 	qrCodeJson, err := json.Marshal(qrCode)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to marshal qr code: %w", err)
+// 	}
 
-	qrCodeString := base64.StdEncoding.EncodeToString(qrCodeJson)
+// 	qrCodeString := base64.StdEncoding.EncodeToString(qrCodeJson)
 
-	// qr, err := qrcode.Encode(qrCodeString, qrcode.Medium, 256)
-	// if err != nil {
-	// 	return "", fmt.Errorf("failed to encode qr code: %w", err)
-	// }
+// 	// qr, err := qrcode.Encode(qrCodeString, qrcode.Medium, 256)
+// 	// if err != nil {
+// 	// 	return "", fmt.Errorf("failed to encode qr code: %w", err)
+// 	// }
 
-	// qrBase64 := base64.StdEncoding.EncodeToString(qr)
+// 	// qrBase64 := base64.StdEncoding.EncodeToString(qr)
 
-	groupQr := models.GroupQrCode{
-		QRCode: qrCodeString,
-		Permission: models.Permission{
-			CanRead:            group.CanRead,
-			CanWrite:           group.CanWrite,
-			CanEdit:            group.CanEdit,
-			CanSendImages:      group.CanSendImages,
-			CanUseCameraDevice: group.CanUseCameraDevice,
-		},
-		ExpiryTime: time.Now().Add(1 * time.Hour),
-		CreatedAt:  time.Now(),
-	}
+// 	groupQr := models.GroupQrCode{
+// 		QRCode: qrCodeString,
+// 		Permission: models.Permission{
+// 			CanRead:            group.CanRead,
+// 			CanWrite:           group.CanWrite,
+// 			CanEdit:            group.CanEdit,
+// 			CanSendImages:      group.CanSendImages,
+// 			CanUseCameraDevice: group.CanUseCameraDevice,
+// 		},
+// 		ExpiryTime: time.Now().Add(1 * time.Hour),
+// 		CreatedAt:  time.Now(),
+// 	}
 
-	err = s.groupRepository.CreateGroupQrCode(ctx, objectID, &groupQr)
-	if err != nil {
-		return "", fmt.Errorf("failed to create group qr code: %w", err)
-	}
+// 	err = s.groupRepository.CreateGroupQrCode(ctx, objectID, &groupQr)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to create group qr code: %w", err)
+// 	}
 
-	return qrCodeString, nil
+// 	return qrCodeString, nil
 
-}
+// }
 
 func (h *groupService) JoinGroupByQrCode(ctx context.Context, group *models.JoinGroupByQrCodeRequest) error {
 
