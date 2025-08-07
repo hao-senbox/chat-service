@@ -98,20 +98,20 @@ func main() {
 	api.RegisterChatRouters(router, messageService)
 	api.RegisterEmergencyRouters(router, emergencyService)
 
-	router.LoadHTMLGlob("web/templates/*")
-	router.GET("/", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "home.html", gin.H{})
-	})
+	// router.LoadHTMLGlob("web/templates/*")
+	// router.GET("/", func(c *gin.Context) {
+	// 	c.HTML(http.StatusOK, "home.html", gin.H{})
+	// })
 
-	router.GET("/chat/:group_id", func(c *gin.Context) {
-		groupID := c.Param("group_id")
+	// router.GET("/chat/:group_id", func(c *gin.Context) {
+	// 	groupID := c.Param("group_id")
 
-		// Pass these values to the template
-		c.HTML(http.StatusOK, "chat.html", gin.H{
-			"groupID": groupID,
-			"title":   "Group Chat",
-		})
-	})
+	// 	// Pass these values to the template
+	// 	c.HTML(http.StatusOK, "chat.html", gin.H{
+	// 		"groupID": groupID,
+	// 		"title":   "Group Chat",
+	// 	})
+	// })
 	c := cron.New(cron.WithSeconds())
 	_, err = c.AddFunc("0 */1 * * * *", func() {
 		log.Println("🔄 Cron master running...")
