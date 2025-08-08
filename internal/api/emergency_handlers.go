@@ -49,6 +49,8 @@ func (h *EmergencyHandlers) CreateEmergency(c *gin.Context) {
 func (h *EmergencyHandlers) GetNotificationsUser(c *gin.Context) {
 
 	userID := c.Value("user_id").(string)
+	types := c.Query("type")
+
 	if userID == "" {
 		SendError(c, http.StatusBadRequest, nil, models.ErrInvalidRequest)
 		return
@@ -62,11 +64,12 @@ func (h *EmergencyHandlers) GetNotificationsUser(c *gin.Context) {
 
 	ctx := context.WithValue(c, constants.TokenKey, token)
 
-	notifications, err := h.emergencyService.GetNotificationsUser(ctx, userID)
+	notifications, err := h.emergencyService.GetNotificationsUser(ctx, userID, types)
 	if err != nil {
 		SendError(c, http.StatusInternalServerError, err, models.ErrInvalidOperation)
 		return
 	}
+	
 
 	SendSuccess(c, http.StatusOK, "Get notifications successfully", notifications)
 
@@ -74,7 +77,7 @@ func (h *EmergencyHandlers) GetNotificationsUser(c *gin.Context) {
 
 func (h *EmergencyHandlers) UpdateEmergency(c *gin.Context) {
 	type request struct {
-		Type    string `json:"type"`
+		Type string `json:"type"`
 	}
 
 	var req request
@@ -83,7 +86,7 @@ func (h *EmergencyHandlers) UpdateEmergency(c *gin.Context) {
 		SendError(c, http.StatusBadRequest, err, models.ErrInvalidRequest)
 		return
 	}
-	
+
 	id := c.Param("emergency_id")
 	if id == "" {
 		SendError(c, http.StatusBadRequest, nil, models.ErrInvalidRequest)
