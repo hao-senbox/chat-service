@@ -16,7 +16,7 @@ import (
 
 type EmergencyService interface {
 	CreateEmergency(ctx context.Context, req *models.EmergencyRequest) error
-	GetNotificationsUser(ctx context.Context, userID string) ([]*models.EmergencyLogsResponse, error)
+	GetNotificationsUser(ctx context.Context, userID string, types string) ([]*models.EmergencyLogsResponse, error)
 	UpdateEmergency(ctx context.Context, status string, id string) error
 	SenPendingNotifications(ctx context.Context) error
 }
@@ -224,7 +224,7 @@ func (s *emergencyService) CreateEmergency(ctx context.Context, req *models.Emer
 		ID:         primitive.NewObjectID(),
 		GroupID:    groupEmergencyID,
 		SenderID:   req.UserID,
-		Content:    "Emergency Notification",
+		Content:    "Emergency Notification. I need help from you.",
 		ContenType: "text",
 		CreatedAt:  now,
 		UpdateAt:   now,
@@ -268,9 +268,11 @@ func (s *emergencyService) sendToToken(token string) error {
 
 }
 
-func (s *emergencyService) GetNotificationsUser(ctx context.Context, userID string) ([]*models.EmergencyLogsResponse, error) {
+func (s *emergencyService) GetNotificationsUser(ctx context.Context, userID string, types string) ([]*models.EmergencyLogsResponse, error) {
+	
 	var result []*models.EmergencyLogsResponse
-	emergencies, err := s.emergencyLogsRepository.GetNotificationsUser(ctx, userID)
+
+	emergencies, err := s.emergencyLogsRepository.GetNotificationsUser(ctx, userID, types)
 	if err != nil {
 		return nil, err
 	}

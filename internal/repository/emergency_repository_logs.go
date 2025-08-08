@@ -11,7 +11,7 @@ import (
 
 type EmergencyLogsRepository interface {
 	Create(ctx context.Context, emergencyLogs *models.EmergencyLogs) error
-	GetNotificationsUser(ctx context.Context, userID string) ([]*models.EmergencyLogs, error)
+	GetNotificationsUser(ctx context.Context, userID, types string) ([]*models.EmergencyLogs, error)
 	UpdateEmergencyStatus(ctx context.Context, emergencyID primitive.ObjectID, status string) error
 	GetPendingNotifications(ctx context.Context) ([]*models.EmergencyLogs, error)
 }
@@ -34,9 +34,29 @@ func (e *emergencyLogsRepository) Create(ctx context.Context, emergencyLogs *mod
 	return nil
 }
 
-func (e *emergencyLogsRepository) GetNotificationsUser(ctx context.Context, userID string) ([]*models.EmergencyLogs, error) {
-	
+func (e *emergencyLogsRepository) GetNotificationsUser(ctx context.Context, userID, types string) ([]*models.EmergencyLogs, error) {
+
 	filter := bson.M{"user_id": userID}
+
+	if types != "" {
+		switch types {
+		case "received":
+			filter["is_sender"] = false
+		case "sent":
+			filter["is_sender"] = true
+		case "approved":
+			filter["status"] = "approved"
+			filter["is_sender"] = false
+		case "rejected":
+			filter["status"] = "rejected"
+			filter["is_sender"] = false
+		case "pending":
+			filter["status"] = "pending"
+			filter["is_sender"] = false
+		default:
+			return nil, nil
+		}
+	}
 
 	cursor, err := e.collecion.Find(ctx, filter)
 	if err != nil {
@@ -49,7 +69,7 @@ func (e *emergencyLogsRepository) GetNotificationsUser(ctx context.Context, user
 	}
 
 	return emergencyLogs, nil
-	
+
 }
 
 func (e *emergencyLogsRepository) UpdateEmergencyStatus(ctx context.Context, emergencyID primitive.ObjectID, status string) error {
@@ -64,7 +84,7 @@ func (e *emergencyLogsRepository) UpdateEmergencyStatus(ctx context.Context, eme
 	}
 
 	return nil
-	
+
 }
 
 func (e *emergencyLogsRepository) GetPendingNotifications(ctx context.Context) ([]*models.EmergencyLogs, error) {
@@ -82,5 +102,5 @@ func (e *emergencyLogsRepository) GetPendingNotifications(ctx context.Context) (
 	}
 
 	return emergencyLogs, nil
-	
+
 }
