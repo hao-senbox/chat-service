@@ -1,16 +1,16 @@
 package consul
 
 import (
+	"chat-service/config"
+	"chat-service/pkg/zap"
 	"fmt"
+	"github.com/hashicorp/consul/api"
+	"github.com/hashicorp/consul/api/watch"
 	"log"
 	"math/rand"
 	"net/http"
-	"chat-service/config"
-	"chat-service/pkg/zap"
 	"strconv"
 	"time"
-	"github.com/hashicorp/consul/api"
-	"github.com/hashicorp/consul/api/watch"
 )
 
 const (
@@ -38,26 +38,43 @@ type service struct {
 func NewConsulConn(log zap.Logger, cfg *config.Config) *service {
 	consulHost := cfg.Consul.Host
 	if consulHost == "" {
-		// Fallback to localhost if the host is not set in the config
 		consulHost = "localhost"
 	}
 
 	defaultConfig = &api.Config{
-		Address: fmt.Sprintf("%s:%s", consulHost, cfg.Consul.Port), // Consul server address
+		Address: fmt.Sprintf("%s:%s", consulHost, cfg.Consul.Port),
 		HttpClient: &http.Client{
-			Timeout: 30 * time.Second, // Increase timeout to 30 seconds
+			Timeout: 60 * time.Second, // Tăng timeout
 		},
 	}
 
-	// Consul client setup
-	client, err := api.NewClient(defaultConfig)
+	var client *api.Client
+	var err error
+
+	// Retry logic - thử connect 5 lần, mỗi lần cách nhau 5 giây
+	for i := 0; i < 5; i++ {
+		client, err = api.NewClient(defaultConfig)
+		if err == nil {
+			// Test connection
+			_, err = client.Agent().Self()
+			if err == nil {
+				log.Infof("Successfully connected to Consul on attempt %d", i+1)
+				break
+			}
+		}
+
+		log.Warnf("Failed to connect to Consul (attempt %d/5): %v", i+1, err)
+		if i < 4 { // Don't sleep on last attempt
+			time.Sleep(5 * time.Second)
+		}
+	}
 
 	if err != nil {
-		log.Fatalf("Failed to create Consul client: %v", err)
+		log.Fatalf("Failed to create Consul client after 5 attempts: %v", err)
 	}
 
 	return &service{
-		client: client, // Store the client instance
+		client: client,
 		log:    log,
 		cfg:    cfg,
 	}
