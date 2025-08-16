@@ -2,7 +2,6 @@ package consul
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
