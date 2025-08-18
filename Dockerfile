@@ -1,6 +1,7 @@
 # Official Go Alpine Base Image for building the application
 FROM golang:1.24-alpine AS builder
 
+
 # Set the working directory inside the container
 WORKDIR /app
 
@@ -20,33 +21,27 @@ FROM alpine:3.21
 # Set the working directory
 WORKDIR /root/
 
-# Install necessary dependencies (bash for scripts, curl for consul health checks)
-RUN apk add --no-cache libc6-compat bash curl
+# Install runtime dependencies including tzdata
+RUN apk add --no-cache libc6-compat bash tzdata
+
+# Set timezone (optional)
+ENV TZ=Asia/Ho_Chi_Minh
 
 # Copy the built Go binary from the builder image
 COPY --from=builder /app/api .
 
-# Copy the .env file to the container
+# Copy the .env file
 COPY ./.env /root/.env
 
-# Copy credentials
-COPY ./credentials /root/credentials
-
-# Copy the original wait-for-it.sh script (for MongoDB)
+# Copy the wait-for-it.sh script into the container
 COPY ./scripts/wait-for-it.sh /wait-for-it.sh
 RUN chmod +x /wait-for-it.sh
 
-# Copy the new wait-for-consul.sh script
-COPY ./scripts/wait-for-consul.sh /wait-for-consul.sh
-RUN chmod +x /wait-for-consul.sh
-
-# Copy the startup chain script
-COPY ./scripts/start-services.sh /start-services.sh
-RUN chmod +x /start-services.sh
+# Copy the credentials folder
+COPY ./credentials /root/credentials
 
 # Expose the necessary port
 EXPOSE 8007
 
-# Use the startup chain script as the entrypoint
-# This will wait for MongoDB first, then Consul, then start the app
-CMD ["/start-services.sh", "./api"]
+# Set the entrypoint to wait for MariaDB to be ready before starting the application
+CMD ["/wait-for-it.sh", "chat_db:27017", "--", "./api"] 
