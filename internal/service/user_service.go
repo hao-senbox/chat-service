@@ -123,6 +123,7 @@ func (u *userService) GetUserInfor(ctx context.Context, userID string) (*models.
 		UserID:   safeString(innerData["id"]),
 		UserName: safeString(innerData["username"]),
 		FullName: safeString(innerData["fullname"]),
+		NickName: safeString(innerData["nickname"]),
 		Avartar:  safeString(innerData["avatar"]),
 		Role:     roleName,
 	}, nil

@@ -169,7 +169,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 			}
 			userInfo = &models.UserInfor{
 				UserID:   fetchedInfo.UserID,
-				UserName: fetchedInfo.UserName,
+				UserName: fetchedInfo.NickName,
 				Avartar:  fetchedInfo.Avartar,
 			}
 			userCache[msg.SenderID] = userInfo
@@ -212,7 +212,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 						}
 						react.UserReact[i].UserInfor = &models.UserInfor{
 							UserID:   fetchedInfo.UserID,
-							UserName: fetchedInfo.UserName,
+							UserName: fetchedInfo.NickName,
 							Avartar:  fetchedInfo.Avartar,
 						}
 						userCache[userID] = react.UserReact[i].UserInfor
@@ -245,7 +245,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 					}
 					userInfo = &models.UserInfor{
 						UserID:   fetchedInfo.UserID,
-						UserName: fetchedInfo.UserName,
+						UserName: fetchedInfo.NickName,
 						Avartar:  fetchedInfo.Avartar,
 					}
 					userCache[uid] = userInfo
@@ -273,7 +273,7 @@ func (s *chatService) GetGroupMessages(ctx context.Context, groupID string, user
 			IsDelete:          msg.IsDelete,
 			ContenType:        msg.ContenType,
 			ImageKey:          msg.ImageKey,
-			CreatedAt:         msg.CreatedAt,
+			CreatedAt:         msg.CreatedAt.Add(7 * time.Hour),
 			SenderInfor:       userInfo,
 			Reacts:            reacts,
 			NotReactedMembers: currentNotReacted,
@@ -320,7 +320,7 @@ func (s *chatService) DownloadGroupMessages(ctx *gin.Context, groupID string, fr
 		if msg.Content == "" {
 			content = "Image"
 		}
-		line := fmt.Sprintf("[%s] %s: %s\n", timeStr, msg.SenderInfor.UserName, content)
+		line := fmt.Sprintf("[%s] %s: %s\n", timeStr, msg.SenderInfor.NickName, content)
 		buffer.WriteString(line)
 	}
 
