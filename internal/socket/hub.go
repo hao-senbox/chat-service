@@ -1683,8 +1683,25 @@ func (s *Hub) sendToToken(token string, messageData Message) error {
 		Data: map[string]string{
 			"group_id":  messageData.GroupID,
 			"sender_id": messageData.SenderID,
+			"route":     "/emergency_notification", 
+			"status":    "done",                    
 		},
+		
 		Token: token,
+
+		Android: &messaging.AndroidConfig{
+			Notification: &messaging.AndroidNotification{
+				Sound: "sound_notification.caf",
+			},
+		},
+
+		APNS: &messaging.APNSConfig{
+			Payload: &messaging.APNSPayload{
+				Aps: &messaging.Aps{
+					Sound: "sound_notification.caf",
+				},
+			},
+		},
 	}
 
 	_, err = client.Send(ctx, message)
