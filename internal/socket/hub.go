@@ -1405,7 +1405,7 @@ func (hub *Hub) processAndBroadcastNewMessage(messageData Message) {
 
 	hub.sendMessageToGroup(messageData.GroupID, serializedResponse)
 
-	go hub.notifyGroupMembers(groupDetail.Members, messageData)
+	go hub.notifyGroupMembers(contextWithToken, groupDetail.Members, messageData)
 
 }
 
@@ -1635,9 +1635,7 @@ func (hub *Hub) sendMessageToGroup(targetGroupID string, messageBytes []byte) {
 	}
 }
 
-func (hub *Hub) notifyGroupMembers(members []models.GroupMemberWithUserInfor, messageData Message) {
-
-	ctx := context.Background()
+func (hub *Hub) notifyGroupMembers(ctx context.Context, members []models.GroupMemberWithUserInfor, messageData Message) {
 
 	for _, member := range members {
 
