@@ -834,6 +834,8 @@ import (
 	"sync"
 	"time"
 
+	firebase "firebase.google.com/go/v4"
+	"firebase.google.com/go/v4/messaging"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -922,13 +924,17 @@ type Hub struct {
 
 	mainContext       context.Context
 	mainContextCancel context.CancelFunc
+
+	fireBase *firebase.App
 }
 
 func NewHub(chatMessageService service.ChatService,
 	chatUserService service.UserService,
 	userOnlineRepository repository.UserOnlineRepository,
 	chatGroupService service.GroupService,
-	messageVoteService service.VoteService) *Hub {
+	messageVoteService service.VoteService,
+	fireBase *firebase.App,
+) *Hub {
 
 	mainContext, mainContextCancel := context.WithCancel(context.Background())
 
@@ -959,6 +965,8 @@ func NewHub(chatMessageService service.ChatService,
 
 		mainContext:       mainContext,
 		mainContextCancel: mainContextCancel,
+
+		fireBase: fireBase,
 	}
 }
 
@@ -982,10 +990,10 @@ func (hub *Hub) getUserInfoWithContext(ctx context.Context, targetUserID string)
 }
 
 func (hub *Hub) updateUserInfoCache(targetUserID string, freshUserInfo *models.UserInfor) {
+
 	hub.userCacheMutex.Lock()
 	defer hub.userCacheMutex.Unlock()
 
-	// Remove existing entry from order list
 	for indexPosition, cachedUserID := range hub.userCacheOrderList {
 		if cachedUserID == targetUserID {
 			hub.userCacheOrderList = append(hub.userCacheOrderList[:indexPosition], hub.userCacheOrderList[indexPosition+1:]...)
@@ -993,10 +1001,8 @@ func (hub *Hub) updateUserInfoCache(targetUserID string, freshUserInfo *models.U
 		}
 	}
 
-	// Add to front of order list (most recently used)
 	hub.userCacheOrderList = append([]string{targetUserID}, hub.userCacheOrderList...)
 
-	// Remove excess entries if cache is full
 	if len(hub.userCacheOrderList) > hub.maxUserCacheSize {
 		for indexPosition := hub.maxUserCacheSize; indexPosition < len(hub.userCacheOrderList); indexPosition++ {
 			delete(hub.userInfoCache, hub.userCacheOrderList[indexPosition])
@@ -1053,6 +1059,7 @@ func (hub *Hub) getGroupMembersNotReacted(ctx context.Context, targetGroupID, me
 }
 
 func (hub *Hub) enrichReactionWithUserInfo(ctx context.Context, messageReactions []*models.MessageReact) (int64, map[string]bool) {
+
 	var totalReactionsCount int64
 	usersWhoReacted := make(map[string]bool)
 	var userInfoWaitGroup sync.WaitGroup
@@ -1086,8 +1093,9 @@ func (hub *Hub) enrichReactionWithUserInfo(ctx context.Context, messageReactions
 }
 
 func (hub *Hub) broadcastOnlineUsersUpdate(targetGroupID string, clientWithToken *Client) {
+
 	hub.backgroundWorkerPool.Submit(func() {
-		// Small delay to batch updates
+
 		time.Sleep(100 * time.Millisecond)
 
 		hub.groupOnlineUsersMutex.RLock()
@@ -1147,6 +1155,7 @@ func (hub *Hub) broadcastOnlineUsersUpdate(targetGroupID string, clientWithToken
 }
 
 func (hub *Hub) Run() {
+
 	defer hub.backgroundWorkerPool.Stop()
 
 	rateLimiterCleanupTicker := time.NewTicker(5 * time.Minute)
@@ -1174,7 +1183,7 @@ func (hub *Hub) Run() {
 }
 
 func (hub *Hub) handleNewClientRegistration(newClient *Client) {
-	// Add client to group room
+
 	hub.groupRoomsMutex.Lock()
 	if _, exists := hub.groupRooms[newClient.groupID]; !exists {
 		hub.groupRooms[newClient.groupID] = make(map[*Client]bool)
@@ -1182,7 +1191,6 @@ func (hub *Hub) handleNewClientRegistration(newClient *Client) {
 	hub.groupRooms[newClient.groupID][newClient] = true
 	hub.groupRoomsMutex.Unlock()
 
-	// Add user to online users list
 	hub.groupOnlineUsersMutex.Lock()
 	if _, exists := hub.groupOnlineUsers[newClient.groupID]; !exists {
 		hub.groupOnlineUsers[newClient.groupID] = make(map[string]bool)
@@ -1193,7 +1201,6 @@ func (hub *Hub) handleNewClientRegistration(newClient *Client) {
 	hub.incrementActiveConnectionsCount()
 	log.Printf("Client %s connected to group %s", newClient.userID, newClient.groupID)
 
-	// Pre-fetch user info in background
 	hub.backgroundWorkerPool.Submit(func() {
 		contextWithToken := hub.createContextWithToken(newClient)
 		_, _ = hub.getUserInfoWithContext(contextWithToken, newClient.userID)
@@ -1203,11 +1210,10 @@ func (hub *Hub) handleNewClientRegistration(newClient *Client) {
 }
 
 func (hub *Hub) handleClientDisconnection(disconnectingClient *Client) {
-	// Remove client from group room
+
 	hub.groupRoomsMutex.Lock()
 	if groupClients, exists := hub.groupRooms[disconnectingClient.groupID]; exists {
 		if _, clientExists := groupClients[disconnectingClient]; clientExists {
-			// Save last online time in background
 			hub.backgroundWorkerPool.Submit(func() {
 				contextWithToken := hub.createContextWithToken(disconnectingClient)
 				err := hub.userOnlineRepository.SaveUserOnline(contextWithToken, &models.UserOnline{
@@ -1223,7 +1229,6 @@ func (hub *Hub) handleClientDisconnection(disconnectingClient *Client) {
 			close(disconnectingClient.send)
 			log.Printf("Client %s removed from group %s", disconnectingClient.userID, disconnectingClient.groupID)
 
-			// Clean up empty group room
 			if len(groupClients) == 0 {
 				delete(hub.groupRooms, disconnectingClient.groupID)
 				log.Printf("Group %s removed as it's empty", disconnectingClient.groupID)
@@ -1333,6 +1338,7 @@ func (hub *Hub) cleanupInactiveRateLimiters() {
 }
 
 func (hub *Hub) processAndBroadcastNewMessage(messageData Message) {
+
 	senderClient := hub.findClientBySenderID(messageData.GroupID, messageData.SenderID)
 	if senderClient == nil {
 		log.Printf("Could not find sender client for user %s", messageData.SenderID)
@@ -1345,6 +1351,12 @@ func (hub *Hub) processAndBroadcastNewMessage(messageData Message) {
 	if err != nil {
 		log.Printf("Invalid group ID: %v", err)
 		hub.incrementErrorCount()
+		return
+	}
+
+	groupDetail, err := hub.chatGroupService.GetGroupDetail(contextWithToken, messageData.GroupID)
+	if err != nil {
+		log.Printf("Error getting group detail: %v", err)
 		return
 	}
 
@@ -1366,7 +1378,6 @@ func (hub *Hub) processAndBroadcastNewMessage(messageData Message) {
 		CreatedAt:  time.Now(),
 	}
 
-	// Keep original field names for FE compatibility
 	responseForFrontend := map[string]interface{}{
 		"type":                messageData.Type,
 		"group_id":            messageData.GroupID,
@@ -1389,8 +1400,13 @@ func (hub *Hub) processAndBroadcastNewMessage(messageData Message) {
 	}
 
 	responseForFrontend["id"] = savedMessageID.Hex()
+
 	serializedResponse, _ := json.Marshal(responseForFrontend)
+
 	hub.sendMessageToGroup(messageData.GroupID, serializedResponse)
+
+	go hub.notifyGroupMembers(groupDetail.Members, messageData)
+
 }
 
 func (hub *Hub) processAndBroadcastEditMessage(messageData Message) {
@@ -1600,9 +1616,7 @@ func (hub *Hub) sendMessageToGroup(targetGroupID string, messageBytes []byte) {
 		for client := range groupClients {
 			select {
 			case client.send <- messageBytes:
-				// Message sent successfully
 			default:
-				// Client's send channel is full or closed
 				deadClients = append(deadClients, client)
 			}
 		}
@@ -1619,6 +1633,71 @@ func (hub *Hub) sendMessageToGroup(targetGroupID string, messageBytes []byte) {
 			}(deadClient)
 		}
 	}
+}
+
+func (hub *Hub) notifyGroupMembers(members []models.GroupMemberWithUserInfor, messageData Message) {
+
+	ctx := context.Background()
+
+	for _, member := range members {
+
+		if member.GroupMember.UserID == messageData.SenderID {
+			continue
+		}
+
+		tokens, err := hub.chatUserService.GetTokenUser(ctx, member.GroupMember.UserID)
+		if err != nil {
+			log.Printf("Failed to get tokens for user %s: %v", member.GroupMember.UserID, err)
+		}
+
+		if tokens == nil || len(*tokens) == 0 {
+			log.Printf("No tokens found for user %s", member.GroupMember.UserID)
+			continue
+		}
+
+		for _, token := range *tokens {
+			if token == "" {
+				continue
+			}
+
+			if err := hub.sendToToken(token, messageData); err != nil {
+				log.Printf("Failed to send notification to token %s for user %s: %v", token, member.GroupMember.UserID, err)
+				continue
+			}
+		}
+	}
+}
+
+func (s *Hub) sendToToken(token string, messageData Message) error {
+
+	ctx := context.Background()
+
+	client, err := s.fireBase.Messaging(ctx)
+	if err != nil {
+		return fmt.Errorf("error getting Messaging client: %w", err)
+	}
+
+	message := &messaging.Message{
+		Notification: &messaging.Notification{
+			Title: fmt.Sprintf("%s sent a message", messageData.SenderInfo.Username),
+			Body:  messageData.Content,
+		},
+		Data: map[string]string{
+			"group_id":  messageData.GroupID,
+			"sender_id": messageData.SenderID,
+		},
+		Token: token,
+	}
+
+	_, err = client.Send(ctx, message)
+	if err != nil {
+		return fmt.Errorf("error sending message: %w", err)
+	}
+
+	log.Printf("Sent FCM notification to token: %s", token)
+
+	return nil
+
 }
 
 func (hub *Hub) incrementActiveConnectionsCount() {
