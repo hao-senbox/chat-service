@@ -45,7 +45,7 @@ func ServeWsGin(hub *Hub) gin.HandlerFunc {
 			token:   token.(string),
 		}
 
-		hub.register <- client
+		hub.registerChannel <- client
 
 		// Bắt đầu goroutines cho client
 		go client.writePump()

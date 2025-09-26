@@ -40,6 +40,7 @@ type UserInfor struct {
 	UserID     string     `json:"user_id,omitempty"`
 	UserName   string     `json:"user_name,omitempty"`
 	FullName   string     `json:"full_name,omitempty"`
+	NickName   string     `json:"nick_name,omitempty"`
 	Role       string     `json:"role,omitempty"`
 	Avartar    string     `json:"avatar,omitempty"`
 	LastOnline *time.Time `json:"last_online,omitempty"`

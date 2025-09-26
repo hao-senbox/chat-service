@@ -95,7 +95,7 @@ func main() {
 	emergencyRepository := repository.NewEmergencyRepository(emergencyCollection)
 	emergencyLogsRepository := repository.NewEmergencyLogsRepository(emergencyLogsCollection)
 	emergencyService := service.NewEmergencyService(emergencyRepository, groupService, userService, emergencyLogsRepository, groupRepository, messagesRepository, client)
-	hub := socket.NewHub(messageService, userService, userOnlineRepository, groupService, voteService)
+	hub := socket.NewHub(messageService, userService, userOnlineRepository, groupService, voteService, client)
 	go hub.Run()
 	// Set up router with Gin
 	router := gin.Default()

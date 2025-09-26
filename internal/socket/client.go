@@ -50,7 +50,7 @@ type Client struct {
 
 func (c *Client) readPump() {
 	defer func() {
-		c.hub.unregister <- c
+		c.hub.unregisterChannel <- c
 		_ = c.conn.Close()
 	}()
 
@@ -79,7 +79,7 @@ func (c *Client) readPump() {
 			continue
 		}
 
-		c.hub.broadcast <- bytes.TrimSpace(bytes.Replace(message, newLine, space, -1))
+		c.hub.broadcastChannel <- bytes.TrimSpace(bytes.Replace(message, newLine, space, -1))
 	}
 }
 
